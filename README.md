@@ -1,13 +1,13 @@
-## dns-rrr
+# dns-rrr
 
 Client and server implementations of [draft-ietf-regext-dnsoperator-to-rrr-protocol](https://tools.ietf.org/html/draft-ietf-regext-dnsoperator-to-rrr-protocol).
 
-### Dependencies
+## Dependencies
 
 Perl dependencies are listed in `Makefile.PL`.  To run the tests,
 Docker (>= 1.8.3) and bind (>= 9.10) are required as well.
 
-### Installation
+## Installation
 
     perl Makefile.PL
     make
@@ -17,7 +17,7 @@ Docker (>= 1.8.3) and bind (>= 9.10) are required as well.
     make test
     sudo make install
 
-### Configuration
+## Configuration
 
 Configuration is in YAML format.  Server configuration is like so:
 
@@ -39,7 +39,7 @@ Client configuration is as per server configuration, except:
   * each domain must have an additional `dns-rrr-server` entry
     pointing to the server providing this protocol for that domain.
 
-### Example usage
+## Example usage
 
     $ ./testing/start.sh
     322169d3c33808a4766610458a87266b2fc666175965776f33bfda37b8a4be8f
@@ -65,6 +65,6 @@ other scenarios: use `docker inspect -f {{ .Mounts }} $id` to find the
 base bind configuration directory, and see `testing/00_parent` and
 `testing/01_child` for RNDC configuration files.
 
-### License
+## License
 
-See LICENSE.txt.
+See [LICENSE.txt](LICENSE.txt).
