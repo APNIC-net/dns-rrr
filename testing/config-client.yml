@@ -1,0 +1,9 @@
+domains:
+  example.com:
+    server: 127.0.0.2
+    tsig: "+8OY/2Ys+3juRO3oG/AHjw=="
+    dns-rrr-server: http://127.0.0.1:34517
+  us.example.com:
+    server: 127.0.0.3
+    tsig: "jQejSTQEKTBA1RcU0GkwEQ=="
+    dns-rrr-server: http://127.0.0.1:34517

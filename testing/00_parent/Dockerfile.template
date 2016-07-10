@@ -1,0 +1,12 @@
+FROM sameersbn/bind:latest
+
+RUN usermod -u ${USER_ID} bind
+COPY zones.parent /etc/bind/
+COPY named.conf.local /etc/bind/
+COPY named.conf.options /etc/bind/
+RUN mkdir /etc/bind/keys
+COPY K* /etc/bind/keys/
+RUN chown -R bind:bind /etc/bind
+
+ENTRYPOINT ["/sbin/entrypoint.sh"]
+CMD ["/usr/sbin/named"]

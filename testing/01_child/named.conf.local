@@ -1,0 +1,7 @@
+zone "us.example.com" {
+    type master;
+    file "/etc/bind/zones.child";
+    key-directory "/etc/bind/keys";
+    auto-dnssec maintain;
+    inline-signing yes;
+};

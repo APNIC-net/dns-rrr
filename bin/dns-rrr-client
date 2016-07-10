@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use APNIC::DNSRRR::Client;
+use YAML;
+
+my ($path, $domain, $command) = @ARGV;
+my $config = YAML::LoadFile($path);
+my $client = APNIC::DNSRRR::Client->new(%{$config});
+
+if ($command eq '--initialise') {
+    my $rr = $client->generate_token($domain);
+    $client->add_token($domain, $rr);
+    $client->create_cds($domain);
+    sleep(1);
+    $client->post_cds($domain);
+    $client->remove_token($domain, $rr);
+} elsif ($command eq '--update') {
+    $client->create_cds($domain);
+    $client->put_cds($domain);
+} elsif ($command eq '--delete') {
+    $client->delete_cds($domain);
+} else {
+    print STDERR "unknown command '$command'\n";
+}
+
+1;

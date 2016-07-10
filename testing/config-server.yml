@@ -1,0 +1,8 @@
+port: 34517
+domains:
+  example.com:
+    server: 127.0.0.2
+    tsig: "+8OY/2Ys+3juRO3oG/AHjw=="
+  us.example.com:
+    server: 127.0.0.3
+    tsig: "jQejSTQEKTBA1RcU0GkwEQ=="
