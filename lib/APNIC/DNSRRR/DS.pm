@@ -47,6 +47,8 @@ my $map = sub {
 my @pairedval = sort ( 0 .. 254, 0 .. 254 );            # also accept number
 my %algbyname = map &$map($_), @algbyname, @pairedval;
 
+no warnings;
+
 sub _algbyname {
         my $name = shift;
         my $key  = uc $name;                            # synthetic key
