@@ -12,11 +12,17 @@ use base qw(Exporter);
 
 sub start_test_servers
 {
+    my ($config_path) = @_;
+
+    if (not $config_path) {
+        $config_path = 'testing/config-server.yml';
+    }
+
     my @pids;
     my @servers;
 
     my $server = APNIC::DNSRRR::Server->new(
-        %{YAML::LoadFile('testing/config-server.yml')}
+        %{YAML::LoadFile($config_path)}
     );
     if (my $pid = fork()) {
         push @pids, $pid;

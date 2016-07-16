@@ -22,6 +22,17 @@ sub new
     my $class = shift;
     my %args = @_;
     my $self = \%args;
+
+    if (not defined $self->{'cds_digests'}) {
+        $self->{'cds_digests'} = [qw(SHA-1 SHA-256)];
+    }
+    for my $digest (@{$self->{'cds_digests'}}) {
+        my $res = Net::DNS::RR::DS->digtype($digest);
+        if (not $res) {
+            die "Digest type '$digest' is invalid";
+        }
+    }
+
     my $ua = LWP::UserAgent->new();
     $self->{'ua'} = $ua;
     bless $self, $class;
@@ -74,9 +85,11 @@ sub create_cds
         my $string = $dnskey->string();
         $string =~ s/DNSKEY/CDNSKEY/;
         my $cdnskey = Net::DNS::RR->new($string);
-        my $cds = Net::DNS::RR::CDS->create($dnskey, digtype => 'SHA-256');
         $update->push(update => rr_add($cdnskey->string()));
-        $update->push(update => rr_add($cds->string()));
+        for my $digtype (@{$self->{'cds_digests'}}) {
+            my $cds = Net::DNS::RR::CDS->create($dnskey, digtype => $digtype);
+            $update->push(update => rr_add($cds->string()));
+        }
     }
     sign_update($self, $domain, $update);
     my $reply = $resolver->send($update);
@@ -164,9 +177,11 @@ sub put_cds
         my $string = $dnskey->string();
         $string =~ s/DNSKEY/CDNSKEY/;
         my $cdnskey = Net::DNS::RR->new($string);
-        my $cds = Net::DNS::RR::CDS->create($dnskey, digtype => 'SHA-256');
         $update->push(update => rr_add($cdnskey->string()));
-        $update->push(update => rr_add($cds->string()));
+        for my $digtype (@{$self->{'cds_digests'}}) {
+            my $cds = Net::DNS::RR::CDS->create($dnskey, digtype => $digtype);
+            $update->push(update => rr_add($cds->string()));
+        }
     }
     sign_update($self, $domain, $update);
     my $reply = $resolver->send($update);

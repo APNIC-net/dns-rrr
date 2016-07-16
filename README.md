@@ -27,17 +27,32 @@ Configuration is in YAML format.  Server configuration is like so:
         server: {dns-server-for-domain}
         tsig: {key-for-dns-update}
       ...
+    ds_from: {CDS|CDNSKEY}
+    ds_digests: [{SHA-1|SHA-256|SHA-384|GOST}, ...]
 
-where `port` is the port on which the server will run, and `domains`
+`port` is the port on which the server will run.  `domains`
 contains information about DNS servers and update keys for specific
-domains.
+domains.  `ds_from` is the type of record that should be used
+to generate DS records (defaults to CDS).  `ds_digests` is the set of
+digest algorithms for which DS records should be generated (only
+relevant when `ds_from` is CDNSKEY, and defaults to SHA-1 and SHA-256).
 
-Client configuration is as per server configuration, except:
+Client configuration is like so:
 
-  * there is no `port` entry;
-  * each domain for which updates will be sent must be present; and
-  * each domain must have an additional `dns-rrr-server` entry
-    pointing to the server providing this protocol for that domain.
+    domains:
+      {domain-name}:
+        server: {dns-server-for-domain}
+        tsig: {key-for-dns-update}
+        dns-rrr-server: {dns-rrr-server-url}
+      ...
+    cds_digests: [{SHA-1|SHA-256|SHA-384|GOST}, ...]
+
+`domains` is the same as for server configuration, except that each
+domain for which updates will be sent must be present, and each domain
+must have an additional `dns-rrr-server` entry pointing to the server
+providing this protocol for that domain.  `cds_digests` is the set of
+digest algorithms for which CDS records should be generated (defaults
+to SHA-1 and SHA-256).be generated (defaults to SHA-1 and SHA-256).
 
 ## Example usage
 
@@ -54,7 +69,8 @@ enabled, one for `example.com` (127.0.0.2) and one for
     $ dig @127.0.0.3 +short DS us.example.com
     $ dns-rrr-client testing/config-client.yml us.example.com --initialise
     $ dig @127.0.0.2 +short DS us.example.com
-    18684 7 2 FB3C9AF859B1C8EF665AD4230F57CFC13916B49448FDB6D92D28BB0A 7296A748
+    16023 7 1 59913E4E49AA288EA3D54D3855C5FDC3494D2F56
+    16023 7 2 BD13E33A85F3C547CB8C6E213CA709315382140438CD4FD9CF39CE46 C9791870
     $ dns-rrr-client testing/config-client.yml us.example.com --delete
     $ dig @127.0.0.2 +short DS us.example.com
 

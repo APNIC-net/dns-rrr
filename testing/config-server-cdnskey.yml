@@ -1,0 +1,12 @@
+port: 34517
+ds_from: CDNSKEY
+ds_digests:
+  - SHA-1
+  - SHA-256
+  - SHA-384
+domains:
+  example.com:
+    server: 127.0.0.2
+    tsig: "+8OY/2Ys+3juRO3oG/AHjw=="
+  us.example.com:
+    server: 127.0.0.3

@@ -17,6 +17,7 @@ use APNIC::DNSRRR::Utils qw(get_resolver
                             is_sep);
 
 use constant TOKEN_EXPIRY_SECONDS => 300;
+use constant DS_FROM => (qw(CDS CDNSKEY));
 
 our $VERSION = '0.1';
 
@@ -28,6 +29,22 @@ sub new
     if (not defined $self->{'port'}) {
         $self->{'port'} = 8080;
     }
+    if (not defined $self->{'ds_from'}) {
+        $self->{'ds_from'} = 'CDS';
+    }
+    if (not first { $_ eq $self->{'ds_from'} } DS_FROM()) {
+        die "'ds_from' must be either 'CDS' or 'CDNSKEY'";
+    }
+    if (not defined $self->{'ds_digests'}) {
+        $self->{'ds_digests'} = [qw(SHA-1 SHA-256)];
+    }
+    for my $digest (@{$self->{'ds_digests'}}) {
+        my $res = Net::DNS::RR::DS->digtype($digest);
+        if (not $res) {
+            die "Digest type '$digest' is invalid";
+        }
+    }
+
     my $d = HTTP::Daemon->new(
         LocalPort => $self->{'port'},
         ReuseAddr => 1,
@@ -94,6 +111,45 @@ sub post_token
                           { record => "$domain IN TXT \"$token\"" });
 }
 
+sub generate_ds_records
+{
+    my ($self, $cds_rrs, $cdnskey_rrs) = @_;
+
+    my %sep_keys_by_tag =
+        map  { $_->keytag() => $_ }
+        grep { is_sep($_) }
+            @{$cdnskey_rrs};
+    my @ds_rrs;
+
+    if ($self->{'ds_from'} eq 'CDS') {
+        my @sep_cds_rrs =
+            grep { $sep_keys_by_tag{$_->keytag()} }
+                @{$cds_rrs};
+        @ds_rrs =
+            map { my $data = $_->string();
+                  $data =~ s/CDS/DS/;
+                  Net::DNS::RR->new($data) }
+                @sep_cds_rrs;
+    } else {
+        for my $cdnskey (values %sep_keys_by_tag) {
+            for my $digest_type (@{$self->{'ds_digests'}}) {
+                my $ds = eval {
+                    Net::DNS::RR::DS->create($cdnskey,
+                                             digtype => $digest_type)
+                };
+                if (my $error = $@) {
+                    warn "Unable to create digest of type ".
+                         "'$digest_type': $error";
+                } else {
+                    push @ds_rrs, $ds;
+                }
+            }
+        }
+    }
+
+    return @ds_rrs;
+}
+
 sub post_cds
 {
     my ($self, $c, $r, $domain) = @_;
@@ -130,25 +186,18 @@ sub post_cds
                             'No CDNSKEY records were found.');
     }
 
-    my %sep_keys_by_tag =
-        map  { $_->keytag() => $_ }
-        grep { is_sep($_) }
-            @cdnskeys;
-    @cds_rrs = grep { $sep_keys_by_tag{$_->keytag()} } @cds_rrs;
-    if (not @cds_rrs) {
-        return $self->error($c, HTTP_BAD_REQUEST);
+    my @ds_rrs = $self->generate_ds_records(\@cds_rrs, \@cdnskeys);
+    if (not @ds_rrs) {
+        return $self->error($c, HTTP_BAD_REQUEST,
+                            'No usable DS input',
+                            'None of the CDS/CDNSKEY records could '.
+                            'be used to generate DS records.');
     }
 
     my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
     my $parent_resolver = get_resolver($self, $parent);
     my $update = Net::DNS::Update->new($parent, 'IN');
-
     $update->push(update => rr_del("$domain DS"));
-    my @ds_rrs =
-        map { my $data = $_->string();
-              $data =~ s/CDS/DS/;
-              Net::DNS::RR->new($data) }
-            @cds_rrs;
     for my $ds_rr (@ds_rrs) {
         $update->push(update => rr_add($ds_rr->string()));
     }
@@ -223,7 +272,7 @@ sub validate_signatures
 
     my $resolver = get_resolver($self, $domain);
     my @records = rr($resolver, $domain, $record_type);
-    my @rrsigs = 
+    my @rrsigs =
         grep { $_->typecovered() eq $record_type }
             rr($resolver, $domain, 'RRSIG');
 
@@ -309,27 +358,18 @@ sub put_cds
                             'No CDNSKEY records were found.');
     }
 
-    my %sep_keys_by_tag =
-        map  { $_->keytag() => $_ }
-        grep { is_sep($_) }
-            @cdnskeys;
-    @cdss = grep { $sep_keys_by_tag{$_->keytag()} } @cdss;
-    if (not @cdss) {
+    my @ds_rrs = $self->generate_ds_records(\@cdss, \@cdnskeys);
+    if (not @ds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No known CDNSKEY records',
-                            'No known CDNSKEY records were found.');
+                            'No usable DS input',
+                            'None of the CDS/CDNSKEY records could '.
+                            'be used to generate DS records.');
     }
 
     my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
     my $update = Net::DNS::Update->new($parent, 'IN');
     my $parent_resolver = get_resolver($self, $parent);
-
     $update->push(update => rr_del("$domain DS"));
-    my @ds_rrs =
-        map { my $data = $_->string();
-              $data =~ s/CDS/DS/;
-              Net::DNS::RR->new($data) }
-            @cdss;
     for my $ds_rr (@ds_rrs) {
         $update->push(update => rr_add($ds_rr->string()));
     }

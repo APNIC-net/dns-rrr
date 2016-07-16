@@ -1,0 +1,11 @@
+cds_digests:
+  - SHA-1
+  - SHA-256
+  - SHA-384
+domains:
+  example.com:
+    server: 127.0.0.2
+  us.example.com:
+    server: 127.0.0.3
+    tsig: "jQejSTQEKTBA1RcU0GkwEQ=="
+    dns-rrr-server: http://127.0.0.1:34517
