@@ -14,7 +14,8 @@ use Net::DNS;
 use APNIC::DNSRRR::DS;
 use APNIC::DNSRRR::Utils qw(get_resolver
                             sign_update
-                            is_sep);
+                            is_sep
+                            domain_to_parent);
 
 use constant TOKEN_EXPIRY_SECONDS => 300;
 use constant DS_FROM => (qw(CDS CDNSKEY));
@@ -194,7 +195,7 @@ sub post_cds
                             'be used to generate DS records.');
     }
 
-    my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
+    my $parent = domain_to_parent($domain);
     my $parent_resolver = get_resolver($self, $parent);
     my $update = Net::DNS::Update->new($parent, 'IN');
     $update->push(update => rr_del("$domain DS"));
@@ -241,7 +242,7 @@ sub get_dnskeys
         grep { $_->typecovered() eq 'DNSKEY' }
             rr($resolver, $domain, 'RRSIG');
 
-    my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
+    my $parent = domain_to_parent($domain);
     my $parent_resolver = get_resolver($self, $parent);
 
     my %ds_rrs =
@@ -312,7 +313,7 @@ sub delete_cds
                             'CDS record must have an algorithm of 0.');
     }
 
-    my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
+    my $parent = domain_to_parent($domain);
     my $update = Net::DNS::Update->new($parent, 'IN');
     my $parent_resolver = get_resolver($self, $parent);
 
@@ -366,7 +367,7 @@ sub put_cds
                             'be used to generate DS records.');
     }
 
-    my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
+    my $parent = domain_to_parent($domain);
     my $update = Net::DNS::Update->new($parent, 'IN');
     my $parent_resolver = get_resolver($self, $parent);
     $update->push(update => rr_del("$domain DS"));

@@ -5,7 +5,8 @@ use strict;
 
 use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Client;
-use APNIC::DNSRRR::Utils qw(is_sep);
+use APNIC::DNSRRR::Utils qw(is_sep
+                            domain_to_parent);
 use HTTP::Status qw(:constants);
 use JSON::XS qw(decode_json);
 use List::Util qw(first);
@@ -47,7 +48,7 @@ my $pids;
     $res = $client->post_cds($domain);
     ok($res, "Posted CDS records successfully");
     sleep(1);
-    my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
+    my $parent = domain_to_parent($domain);
     my $parent_resolver = $client->get_resolver($parent);
     my @ds = rr($parent_resolver, $domain, 'DS');
     is(@ds, 3, 'Three DS records at parent');

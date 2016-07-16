@@ -5,7 +5,8 @@ use strict;
 
 use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Client;
-use APNIC::DNSRRR::Utils qw(is_sep);
+use APNIC::DNSRRR::Utils qw(is_sep
+                            domain_to_parent);
 use HTTP::Status qw(:constants);
 use JSON::XS qw(decode_json);
 use List::Util qw(first);
@@ -72,7 +73,7 @@ my $pids;
     is(@new_dnskeys, 1, 'Confirmed new DNSKEY added to domain');
     ok(is_sep($new_dnskeys[0]), "New DNSKEY is KSK");
 
-    my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
+    my $parent = domain_to_parent($domain);
     my $parent_resolver = $client->get_resolver($parent);
     my @ds = rr($parent_resolver, $domain, 'DS');
     is(@ds, 1, 'Still one DS record at parent');

@@ -3,9 +3,13 @@ package APNIC::DNSRRR::Utils;
 use warnings;
 use strict;
 
+use Scalar::Util qw(blessed);
+
 our @EXPORT_OK = qw(get_resolver
-		    sign_update
-                    is_sep);
+                    sign_update
+                    is_sep
+                    domain_to_parent
+                    ds_to_matching_dnskeys);
 
 use base qw(Exporter);
 
@@ -38,6 +42,32 @@ sub is_sep
     my ($rr) = @_;
 
     return ($rr->can('is_sep')) ? $rr->is_sep() : $rr->sep();
+}
+
+sub domain_to_parent
+{
+    my ($domain) = @_;
+
+    my ($parent) = ($domain =~ /^[^\.].*?\.(.*)$/);
+
+    return $parent;
+}
+
+sub ds_to_matching_dnskeys
+{
+    my ($ds, $dnskeys) = @_;
+
+    my $pkg = blessed($ds);
+    my @matching_dnskeys =
+        grep { my $ds_cmp =
+                   $pkg->create(
+                       $_,
+                       digtype => $ds->digtype()
+                   );
+               $ds_cmp->string() eq $ds->string() }
+            @{$dnskeys};
+
+    return @matching_dnskeys;
 }
 
 1;
