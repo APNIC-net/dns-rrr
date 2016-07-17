@@ -16,7 +16,7 @@ use lib './t/lib';
 use APNIC::DNSRRR::Test::Utils qw(start_test_servers
                                   stop_test_servers);
 
-use Test::More tests => 8;
+use Test::More tests => 6;
 
 my $pids;
 
@@ -34,9 +34,6 @@ my $pids;
     );
     my $domain = 'us.example.com';
     my $rr = $client->generate_token($domain);
-    is($rr->type(), 'TXT', 'RR is a TXT record');
-    is($rr->name(), $domain, 'RR has correct name');
-
     $res = $client->add_token($domain, $rr);
     ok($res, "Added token successfully");
     $res = $client->create_cds($domain);
