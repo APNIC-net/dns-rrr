@@ -39,16 +39,16 @@ my $pids;
     my $domain = 'us.example.com';
     my $rr = $client->generate_token($domain);
     is($rr->type(), 'TXT', 'RR is a TXT record');
-    is($rr->name(), $domain, 'RR has correct name');
+    is($rr->name(), "_delegate.$domain", 'RR has correct name');
 
     $res = $client->add_token($domain, $rr);
     ok($res, "Added token successfully");
     sleep(1);
     my $resolver = get_resolver($client, $domain);
-    my @rrs = rr($resolver, $domain, 'TXT');
+    my @rrs = rr($resolver, "_delegate.$domain", 'TXT');
     is(@rrs, 1, 'One TXT record retrieved for domain');
     is($rrs[0]->type(), 'TXT', 'Retrieved RR is a TXT record');
-    is($rrs[0]->name(), $domain, 'Retrieved RR has correct name');
+    is($rrs[0]->name(), "_delegate.$domain", 'Retrieved RR has correct name');
 
     my @cs = map { rr($resolver, $domain, $_) } qw(CDS CDNSKEY);
     is(@cs, 0, 'No CDS/CDNSKEY records present for domain');

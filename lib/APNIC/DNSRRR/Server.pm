@@ -110,8 +110,8 @@ sub post_token
     my $timestamp = time();
     $self->{'tokens'}->{$domain} = [ $token, $timestamp ];
 
-    return $self->success($c, HTTP_OK,
-                          { record => "$domain IN TXT \"$token\"" });
+    my $record = "_delegate.$domain IN TXT \"$token\"";
+    return $self->success($c, HTTP_OK, { record => $record });
 }
 
 sub generate_ds_records
@@ -319,11 +319,11 @@ sub post_cds
     my ($self, $c, $r, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @rrs = rr($resolver, $domain, "TXT");
+    my @rrs = rr($resolver, "_delegate.$domain", "TXT");
     if (not @rrs) {
         return $self->error($c, HTTP_FORBIDDEN,
                             'No token record',
-                            'No TXT token record was found.');
+                            'No _delegate TXT token record was found.');
     }
     my $token = $self->{'tokens'}->{$domain}->[0];
     if (not $token) {
