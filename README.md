@@ -28,14 +28,14 @@ Configuration is in YAML format.  Server configuration is like so:
         tsig: {key-for-dns-update}
       ...
     ds_from: {CDS|CDNSKEY}
-    ds_digests: [{SHA-1|SHA-256|SHA-384|GOST}, ...]
+    ds_digest_types: [{SHA-1|SHA-256|SHA-384|GOST}, ...]
 
-`port` is the port on which the server will run.  `domains`
-contains information about DNS servers and update keys for specific
-domains.  `ds_from` is the type of record that should be used
-to generate DS records (defaults to CDS).  `ds_digests` is the set of
-digest algorithms for which DS records should be generated (only
-relevant when `ds_from` is CDNSKEY, and defaults to SHA-1 and SHA-256).
+`port` is the port on which the server will run.  `domains` contains
+information about DNS servers and update keys for specific domains.
+`ds_from` is the type of record that should be used to generate DS
+records (defaults to CDS).  `ds_digest_types` is the set of digest
+algorithms for which DS records should be generated (only relevant
+when `ds_from` is CDNSKEY, and defaults to SHA-1 and SHA-256).
 
 Client configuration is like so:
 

@@ -1,6 +1,6 @@
 port: 34517
 ds_from: CDNSKEY
-ds_digests:
+ds_digest_types:
   - SHA-1
   - SHA-256
   - SHA-384

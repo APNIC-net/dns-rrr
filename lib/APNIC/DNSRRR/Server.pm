@@ -38,10 +38,10 @@ sub new
     if (not first { $_ eq $self->{"ds_from"} } DS_FROM()) {
         die "'ds_from' must be either 'CDS' or 'CDNSKEY'";
     }
-    if (not defined $self->{"ds_digests"}) {
-        $self->{"ds_digests"} = [qw(SHA-1 SHA-256)];
+    if (not defined $self->{"ds_digest_types"}) {
+        $self->{"ds_digest_types"} = [qw(SHA-1 SHA-256)];
     }
-    for my $digest (@{$self->{"ds_digests"}}) {
+    for my $digest (@{$self->{"ds_digest_types"}}) {
         my $res = Net::DNS::RR::DS->digtype($digest);
         if (not $res) {
             die "Digest type '$digest' is invalid";
@@ -134,7 +134,7 @@ sub generate_ds_records
                 @sep_cds_rrs;
     } else {
         for my $cdnskey_rr (@sep_cdnskey_rrs) {
-            for my $digest_type (@{$self->{"ds_digests"}}) {
+            for my $digest_type (@{$self->{"ds_digest_types"}}) {
                 my $ds_rr = eval {
                     Net::DNS::RR::DS->create($cdnskey_rr,
                                              digtype => $digest_type)
