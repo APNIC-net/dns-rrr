@@ -12,7 +12,7 @@ use LWP::UserAgent;
 use Net::DNS;
 use YAML;
 
-use lib './t/lib';
+use lib "./t/lib";
 use APNIC::DNSRRR::Test::Utils qw(start_test_servers
                                   stop_test_servers);
 
@@ -23,12 +23,12 @@ my $pids;
 {
     my $data = start_test_servers();
     $pids = $data->[0];
-    my $port = $data->[1]->[0]->{'port'};
+    my $port = $data->[1]->[0]->{"port"};
 
     my $client = APNIC::DNSRRR::Client->new(
-        %{YAML::LoadFile('testing/config-client.yml')}
+        %{YAML::LoadFile("testing/config-client.yml")}
     );
-    my $domain = 'us.example.com';
+    my $domain = "us.example.com";
     my $rr = $client->generate_token($domain);
     my $res = $client->add_token($domain, $rr);
     ok($res, "Added token successfully");
@@ -39,8 +39,8 @@ my $pids;
     ok($res, "Posted CDS records successfully");
     sleep(1);
     eval { $client->post_cds($domain); };
-    ok($@, 'Unable to repost relying on same token');
-    like($@, qr/Bad Request/, 'Got correct response code');
+    ok($@, "Unable to repost relying on same token");
+    like($@, qr/Bad Request/, "Got correct response code");
 }
 
 END {

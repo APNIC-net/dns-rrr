@@ -17,10 +17,10 @@ sub get_resolver
 {
     my ($object, $domain) = @_;
 
-    my $details = $object->{'domains'}->{$domain};
+    my $details = $object->{"domains"}->{$domain};
     my $resolver = Net::DNS::Resolver->new();
-    if ($details->{'server'}) {
-        $resolver->nameservers($details->{'server'});
+    if ($details->{"server"}) {
+        $resolver->nameservers($details->{"server"});
     }
     return $resolver;
 }
@@ -29,9 +29,9 @@ sub sign_update
 {
     my ($object, $domain, $update) = @_;
 
-    my $details = $object->{'domains'}->{$domain};
-    if ($details->{'tsig'}) {
-        $update->sign_tsig($domain, $details->{'tsig'});
+    my $details = $object->{"domains"}->{$domain};
+    if ($details->{"tsig"}) {
+        $update->sign_tsig($domain, $details->{"tsig"});
     }
 
     return 1;
@@ -41,7 +41,7 @@ sub is_sep
 {
     my ($rr) = @_;
 
-    return ($rr->can('is_sep')) ? $rr->is_sep() : $rr->sep();
+    return ($rr->can("is_sep")) ? $rr->is_sep() : $rr->sep();
 }
 
 sub domain_to_parent

@@ -22,26 +22,26 @@ use APNIC::DNSRRR::Utils qw(get_resolver
 use constant TOKEN_EXPIRY_SECONDS => 300;
 use constant DS_FROM => (qw(CDS CDNSKEY));
 
-our $VERSION = '0.1';
+our $VERSION = "0.1";
 
 sub new
 {
     my $class = shift;
     my %args = @_;
     my $self = \%args;
-    if (not defined $self->{'port'}) {
-        $self->{'port'} = 8080;
+    if (not defined $self->{"port"}) {
+        $self->{"port"} = 8080;
     }
-    if (not defined $self->{'ds_from'}) {
-        $self->{'ds_from'} = 'CDS';
+    if (not defined $self->{"ds_from"}) {
+        $self->{"ds_from"} = "CDS";
     }
-    if (not first { $_ eq $self->{'ds_from'} } DS_FROM()) {
+    if (not first { $_ eq $self->{"ds_from"} } DS_FROM()) {
         die "'ds_from' must be either 'CDS' or 'CDNSKEY'";
     }
-    if (not defined $self->{'ds_digests'}) {
-        $self->{'ds_digests'} = [qw(SHA-1 SHA-256)];
+    if (not defined $self->{"ds_digests"}) {
+        $self->{"ds_digests"} = [qw(SHA-1 SHA-256)];
     }
-    for my $digest (@{$self->{'ds_digests'}}) {
+    for my $digest (@{$self->{"ds_digests"}}) {
         my $res = Net::DNS::RR::DS->digtype($digest);
         if (not $res) {
             die "Digest type '$digest' is invalid";
@@ -49,15 +49,15 @@ sub new
     }
 
     my $d = HTTP::Daemon->new(
-        LocalPort => $self->{'port'},
+        LocalPort => $self->{"port"},
         ReuseAddr => 1,
         ReusePort => 1
     );
     if (not $d) {
         die "Unable to start server: $!";
     }
-    $self->{'port'} = $d->sockport();
-    $self->{'d'} = $d;
+    $self->{"port"} = $d->sockport();
+    $self->{"d"} = $d;
     bless $self, $class;
     return $self;
 }
@@ -72,7 +72,7 @@ sub error
         my $data = encode_json({ title  => $title,
                                  ($detail) ? (detail => $detail) : () });
         $response->content($data);
-        $response->header('Content-Type' => 'application/problem+json');
+        $response->header("Content-Type" => "application/problem+json");
     }
     return $response;
 }
@@ -85,7 +85,7 @@ sub success
     $response->code($code);
     if ($data) {
         $response->content(encode_json($data));
-        $response->header('Content-Type' => 'application/json');
+        $response->header("Content-Type" => "application/json");
     }
     return $response;
 }
@@ -94,21 +94,21 @@ sub post_token
 {
     my ($self, $c, $r, $domain) = @_;
 
-    my $current = $self->{'tokens'}->{$domain};
+    my $current = $self->{"tokens"}->{$domain};
     my $now = time();
     if ($current) {
         my $timestamp = $current->[1];
         if (($timestamp + TOKEN_EXPIRY_SECONDS) > $now) {
             return $self->error($c, HTTP_BAD_REQUEST,
-                                'Unexpired token',
-                                'The token for this domain has not '.
-                                'yet expired.');
+                                "Unexpired token",
+                                "The token for this domain has not ".
+                                "yet expired.");
         }
     }
     my $brs = Bytes::Random::Secure->new(Bits => 512, NonBlocking => 1);
     my $token = $brs->bytes_hex(32);
     my $timestamp = time();
-    $self->{'tokens'}->{$domain} = [ $token, $timestamp ];
+    $self->{"tokens"}->{$domain} = [ $token, $timestamp ];
 
     my $record = "_delegate.$domain IN TXT \"$token\"";
     return $self->success($c, HTTP_OK, { record => $record });
@@ -124,7 +124,7 @@ sub generate_ds_records
             @{$cdnskey_rrs};
 
     my @ds_rrs;
-    if ($self->{'ds_from'} eq 'CDS') {
+    if ($self->{"ds_from"} eq "CDS") {
         my @sep_cds_rrs =
             grep { $sep_keys_by_tag{$_->keytag()} }
                 @{$cds_rrs};
@@ -135,7 +135,7 @@ sub generate_ds_records
                 @sep_cds_rrs;
     } else {
         for my $cdnskey_rr (values %sep_keys_by_tag) {
-            for my $digest_type (@{$self->{'ds_digests'}}) {
+            for my $digest_type (@{$self->{"ds_digests"}}) {
                 my $ds_rr = eval {
                     Net::DNS::RR::DS->create($cdnskey_rr,
                                              digtype => $digest_type)
@@ -158,15 +158,15 @@ sub get_dnskeys
     my ($self, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @dnskey_rrs = rr($resolver, $domain, 'DNSKEY');
+    my @dnskey_rrs = rr($resolver, $domain, "DNSKEY");
 
     my @rrsig_rrs =
-        grep { $_->typecovered() eq 'DNSKEY' }
-            rr($resolver, $domain, 'RRSIG');
+        grep { $_->typecovered() eq "DNSKEY" }
+            rr($resolver, $domain, "RRSIG");
 
     my $parent = domain_to_parent($domain);
     my $parent_resolver = get_resolver($self, $parent);
-    my @ds_rrs = rr($parent_resolver, $domain, 'DS');
+    my @ds_rrs = rr($parent_resolver, $domain, "DS");
 
     my @matching_dnskey_rrs =
         map { ds_to_matching_dnskeys($_, \@dnskey_rrs) }
@@ -189,7 +189,7 @@ sub validate_signatures
     my @rrs = rr($resolver, $domain, $rr_type);
     my @rrsig_rrs =
         grep { $_->typecovered() eq $rr_type }
-            rr($resolver, $domain, 'RRSIG');
+            rr($resolver, $domain, "RRSIG");
 
     for my $rrsig_rr (@rrsig_rrs) {
         if ($rrsig_rr->verify(\@rrs, $dnskey_rrs)) {
@@ -205,7 +205,7 @@ sub is_signed
     my ($self, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @dnskey_rrs = rr($resolver, $domain, 'DNSKEY');
+    my @dnskey_rrs = rr($resolver, $domain, "DNSKEY");
 
     for my $rr_type (qw(DNSKEY SOA)) {
         my @valid_rrs =
@@ -225,7 +225,7 @@ sub has_matching_dnskeys
     my ($self, $domain, $cds_rrs, $cdnskey_rrs) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @dnskey_rrs = rr($resolver, $domain, 'DNSKEY');
+    my @dnskey_rrs = rr($resolver, $domain, "DNSKEY");
 
     for my $cds_rr (@{$cds_rrs}) {
         my @matching_rrs = ds_to_matching_dnskeys($cds_rr, \@dnskey_rrs);
@@ -273,8 +273,8 @@ sub nameservers_agree
     my ($self, $domain, $cds_rrs, $cdnskey_rrs) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @soa_rrs = rr($resolver, $domain, 'SOA');
-    my @ns_rrs = rr($resolver, $domain, 'NS');
+    my @soa_rrs = rr($resolver, $domain, "SOA");
+    my @ns_rrs = rr($resolver, $domain, "NS");
     my @nameservers =
         uniq((map { $_->nsdname() } @ns_rrs),
              (map { $_->mname()   } @soa_rrs));
@@ -317,79 +317,79 @@ sub post_cds
     my @txt_rrs = rr($resolver, "_delegate.$domain", "TXT");
     if (not @txt_rrs) {
         return $self->error($c, HTTP_FORBIDDEN,
-                            'No token record',
-                            'No _delegate TXT token record was found.');
+                            "No token record",
+                            "No _delegate TXT token record was found.");
     }
-    my $token = $self->{'tokens'}->{$domain}->[0];
+    my $token = $self->{"tokens"}->{$domain}->[0];
     if (not $token) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No token',
-                            'No token has been generated for this domain.');
+                            "No token",
+                            "No token has been generated for this domain.");
     }
     my $matching_rr = first { $_->rdstring() eq $token } @txt_rrs;
     if (not $matching_rr) {
         return $self->error($c, HTTP_FORBIDDEN,
-                            'No matching token record',
-                            'No matching TXT token record was found.');
+                            "No matching token record",
+                            "No matching TXT token record was found.");
     }
     my @cds_rrs = rr($resolver, $domain, "CDS");
     if (not @cds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No CDS records',
-                            'No CDS records were found.');
+                            "No CDS records",
+                            "No CDS records were found.");
     }
     my @cdnskey_rrs = rr($resolver, $domain, "CDNSKEY");
     if (not @cdnskey_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No CDNSKEY records',
-                            'No CDNSKEY records were found.');
+                            "No CDNSKEY records",
+                            "No CDNSKEY records were found.");
     }
     my $res = $self->is_signed($domain);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'Zone validation failed',
-                            'The zone is unsigned or invalidly signed.');
+                            "Zone validation failed",
+                            "The zone is unsigned or invalidly signed.");
     }
     $res = $self->has_matching_dnskeys($domain, \@cds_rrs, \@cdnskey_rrs);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'Missing DNSKEYs for CDS/CDNSKEYs',
-                            'One or more CDS/CDNSKEY records has no '.
-                            'matching DNSKEY record.');
+                            "Missing DNSKEYs for CDS/CDNSKEYs",
+                            "One or more CDS/CDNSKEY records has no ".
+                            "matching DNSKEY record.");
     }
     $res = $self->nameservers_agree($domain, \@cds_rrs, \@cdnskey_rrs);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'Nameserver inconsistency',
-                            'The nameservers for this domain have '.
-                            'inconsistent CDS/CDNSKEY RR sets.');
+                            "Nameserver inconsistency",
+                            "The nameservers for this domain have ".
+                            "inconsistent CDS/CDNSKEY RR sets.");
     }
 
     my @ds_rrs = $self->generate_ds_records(\@cds_rrs, \@cdnskey_rrs);
     if (not @ds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No usable DS input',
-                            'None of the CDS/CDNSKEY records could '.
-                            'be used to generate DS records.');
+                            "No usable DS input",
+                            "None of the CDS/CDNSKEY records could ".
+                            "be used to generate DS records.");
     }
 
     my $parent = domain_to_parent($domain);
     my $parent_resolver = get_resolver($self, $parent);
-    my $update = Net::DNS::Update->new($parent, 'IN');
+    my $update = Net::DNS::Update->new($parent, "IN");
     $update->push(update => rr_del("$domain DS"));
     for my $ds_rr (@ds_rrs) {
         $update->push(update => rr_add($ds_rr->string()));
     }
     sign_update($self, $parent, $update);
     my $reply = $parent_resolver->send($update);
-    if ((not $reply) or ($reply->header()->rcode() ne 'NOERROR')) {
+    if ((not $reply) or ($reply->header()->rcode() ne "NOERROR")) {
         warn("Unable to set DS records against server: ".Dumper($reply));
         return $self->error($c, HTTP_INTERNAL_SERVER_ERROR,
-                            'Internal error',
-                            'Unable to add DS records to server.');
+                            "Internal error",
+                            "Unable to add DS records to server.");
     }
 
-    delete $self->{'tokens'}->{$domain};
+    delete $self->{"tokens"}->{$domain};
 
     return $self->success($c, HTTP_CREATED);
 }
@@ -417,32 +417,32 @@ sub delete_cds
     my @cds_rrs = $self->validate_signatures($domain, "CDS", \@dnskey_rrs);
     if (not @cds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No CDS records',
-                            'No CDS records were found.');
+                            "No CDS records",
+                            "No CDS records were found.");
     }
     if (@cds_rrs > 1) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'Multiple CDS records',
-                            'Multiple CDS records were found.');
+                            "Multiple CDS records",
+                            "Multiple CDS records were found.");
     }
     my $cds_rr = $cds_rrs[0];
     if ($cds_rr->algorithm() != 0) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'Invalid CDS record',
-                            'CDS record must have an algorithm of 0.');
+                            "Invalid CDS record",
+                            "CDS record must have an algorithm of 0.");
     }
 
     my $parent = domain_to_parent($domain);
-    my $update = Net::DNS::Update->new($parent, 'IN');
+    my $update = Net::DNS::Update->new($parent, "IN");
     my $parent_resolver = get_resolver($self, $parent);
     $update->push(update => rr_del("$domain DS"));
     sign_update($self, $parent, $update);
     my $reply = $parent_resolver->send($update);
-    if ((not $reply) or ($reply->header()->rcode() ne 'NOERROR')) {
+    if ((not $reply) or ($reply->header()->rcode() ne "NOERROR")) {
         warn("Unable to delete DS records from server: ".Dumper($reply));
         return $self->error($c, HTTP_INTERNAL_SERVER_ERROR,
-                            'Internal error',
-                            'Unable to delete DS records from server.');
+                            "Internal error",
+                            "Unable to delete DS records from server.");
     }
 
     return $self->success($c ,HTTP_OK);
@@ -470,47 +470,47 @@ sub put_cds
         $self->validate_signatures($domain, "CDS", \@dnskey_rrs);
     if (not @cds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No CDS records',
-                            'No CDS records were found.');
+                            "No CDS records",
+                            "No CDS records were found.");
     }
     my @cdnskey_rrs =
         $self->validate_signatures($domain, "CDNSKEY", \@dnskey_rrs);
     if (not @cdnskey_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No CDNSKEY records',
-                            'No CDNSKEY records were found.');
+                            "No CDNSKEY records",
+                            "No CDNSKEY records were found.");
     }
     my $res = $self->is_signed($domain);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'Zone validation failed',
-                            'The zone is unsigned or invalidly signed.');
+                            "Zone validation failed",
+                            "The zone is unsigned or invalidly signed.");
     }
     $res = $self->has_matching_dnskeys($domain, \@cds_rrs, \@cdnskey_rrs);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'Missing DNSKEYs for CDS/CDNSKEYs',
-                            'One or more CDS/CDNSKEY records has no '.
-                            'matching DNSKEY record.');
+                            "Missing DNSKEYs for CDS/CDNSKEYs",
+                            "One or more CDS/CDNSKEY records has no ".
+                            "matching DNSKEY record.");
     }
     $res = $self->nameservers_agree($domain, \@cds_rrs, \@cdnskey_rrs);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'Nameserver inconsistency',
-                            'The nameservers for this domain have '.
-                            'inconsistent CDS/CDNSKEY RR sets.');
+                            "Nameserver inconsistency",
+                            "The nameservers for this domain have ".
+                            "inconsistent CDS/CDNSKEY RR sets.");
     }
 
     my @ds_rrs = $self->generate_ds_records(\@cds_rrs, \@cdnskey_rrs);
     if (not @ds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
-                            'No usable DS input',
-                            'None of the CDS/CDNSKEY records could '.
-                            'be used to generate DS records.');
+                            "No usable DS input",
+                            "None of the CDS/CDNSKEY records could ".
+                            "be used to generate DS records.");
     }
 
     my $parent = domain_to_parent($domain);
-    my $update = Net::DNS::Update->new($parent, 'IN');
+    my $update = Net::DNS::Update->new($parent, "IN");
     my $parent_resolver = get_resolver($self, $parent);
     $update->push(update => rr_del("$domain DS"));
     for my $ds_rr (@ds_rrs) {
@@ -518,10 +518,10 @@ sub put_cds
     }
     sign_update($self, $parent, $update);
     my $reply = $parent_resolver->send($update);
-    if ((not $reply) or ($reply->header()->rcode() ne 'NOERROR')) {
+    if ((not $reply) or ($reply->header()->rcode() ne "NOERROR")) {
         return $self->error($c, HTTP_INTERNAL_SERVER_ERROR,
-                            'Internal error',
-                            'Unable to update DS records on server.');
+                            "Internal error",
+                            "Unable to update DS records on server.");
     }
 
     return $self->success($c, HTTP_OK);
@@ -543,16 +543,16 @@ sub run
 {
     my ($self) = @_;
 
-    my $d = $self->{'d'};
+    my $d = $self->{"d"};
     while (my $c = $d->accept()) {
         while (my $r = $c->get_request()) {
             my $method = $r->method();
             my $path = $r->uri()->path();
             print STDERR "$method $path\n";
             my $res = eval {
-                ($method eq 'POST')   ? $self->post($c, $r)
-              : ($method eq 'DELETE') ? $self->delete($c, $r)
-              : ($method eq 'PUT')    ? $self->put($c, $r)
+                ($method eq "POST")   ? $self->post($c, $r)
+              : ($method eq "DELETE") ? $self->delete($c, $r)
+              : ($method eq "PUT")    ? $self->put($c, $r)
                                       : $self->error($c, HTTP_NOT_FOUND);
             };
             if (my $error = $@) {

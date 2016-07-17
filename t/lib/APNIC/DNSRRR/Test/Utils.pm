@@ -21,7 +21,7 @@ sub start_test_servers
     my ($config_path) = @_;
 
     if (not $config_path) {
-        $config_path = 'testing/config-server.yml';
+        $config_path = "testing/config-server.yml";
     }
 
     my @pids;
@@ -34,7 +34,7 @@ sub start_test_servers
         push @pids, $pid;
         push @servers, $server;
     } else {
-        if (not $ENV{'DNSRRR_DEBUG'}) {
+        if (not $ENV{"DNSRRR_DEBUG"}) {
             close STDERR;
         }
         $server->run();
@@ -63,15 +63,15 @@ sub get_keydir
     my ($domain) = @_;
 
     my $container_name =
-        ($domain eq 'example.com')
-            ? 'bind_parent'
-            : 'bind_child';
+        ($domain eq "example.com")
+            ? "bind_parent"
+            : "bind_child";
 
-    my ($id) = `docker ps | grep $container_name | cut -f 1 -d' '`;
+    my ($id) = `docker ps | grep $container_name | cut -f 1 -d" "`;
     chomp $id;
-    my ($json) = `docker inspect -f '{{json .Mounts }}' $id`;
+    my ($json) = `docker inspect -f "{{json .Mounts }}" $id`;
     my $data = decode_json($json);
-    my $path = $data->[0]->{'Source'};
+    my $path = $data->[0]->{"Source"};
     my $keydir = "$path/bind/etc/keys";
 
     return $keydir;
@@ -97,9 +97,9 @@ sub get_config_path
     my ($domain) = @_;
 
     my $config_dir =
-        ($domain eq 'example.com')
-            ? '00_parent'
-            : '01_child';
+        ($domain eq "example.com")
+            ? "00_parent"
+            : "01_child";
     my $config_path = "./testing/$config_dir/rndc.config";
 
     return $config_path;

@@ -13,7 +13,7 @@ use LWP::UserAgent;
 use Net::DNS;
 use YAML;
 
-use lib './t/lib';
+use lib "./t/lib";
 use APNIC::DNSRRR::Test::Utils qw(start_test_servers
                                   stop_test_servers);
 
@@ -24,12 +24,12 @@ my $pids;
 {
     my $data = start_test_servers();
     $pids = $data->[0];
-    my $port = $data->[1]->[0]->{'port'};
+    my $port = $data->[1]->[0]->{"port"};
 
     my $client = APNIC::DNSRRR::Client->new(
-        %{YAML::LoadFile('testing/config-client.yml')}
+        %{YAML::LoadFile("testing/config-client.yml")}
     );
-    my $domain = 'us.example.com';
+    my $domain = "us.example.com";
     my $rr = $client->generate_token($domain);
     my $res = $client->add_token($domain, $rr);
     ok($res, "Added token successfully");
@@ -42,16 +42,16 @@ my $pids;
 
     my $parent = domain_to_parent($domain);
     my $parent_resolver = get_resolver($client, $parent);
-    my @ds_rrs = rr($parent_resolver, $domain, 'DS');
-    ok(@ds_rrs, 'DS records are present at parent');
+    my @ds_rrs = rr($parent_resolver, $domain, "DS");
+    ok(@ds_rrs, "DS records are present at parent");
 
     $res = eval { $client->delete_cds($domain); };
     diag $@ if $@;
     ok($res, "Deleted CDS records successfully");
     sleep(1);
 
-    @ds_rrs = rr($parent_resolver, $domain, 'DS');
-    ok((not @ds_rrs), 'DS records are not present at parent');
+    @ds_rrs = rr($parent_resolver, $domain, "DS");
+    ok((not @ds_rrs), "DS records are not present at parent");
 }
 
 END {
