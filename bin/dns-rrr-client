@@ -19,6 +19,7 @@ if ($command eq '--initialise') {
     $client->remove_token($domain, $rr);
 } elsif ($command eq '--update') {
     $client->create_cds($domain);
+    sleep(1);
     $client->put_cds($domain);
 } elsif ($command eq '--delete') {
     $client->delete_cds($domain);

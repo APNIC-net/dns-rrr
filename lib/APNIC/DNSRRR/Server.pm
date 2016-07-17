@@ -8,8 +8,8 @@ use Data::Dumper;
 use HTTP::Daemon;
 use HTTP::Status qw(:constants);
 use JSON::XS qw(encode_json);
-use List::Util qw(first);
 use List::MoreUtils qw(uniq);
+use List::Util qw(first);
 use Net::DNS;
 
 use APNIC::DNSRRR::DS;

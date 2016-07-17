@@ -1,4 +1,4 @@
-cds_digests:
+cds_digest_types:
   - SHA-1
   - SHA-256
   - SHA-384
