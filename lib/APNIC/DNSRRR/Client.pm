@@ -7,9 +7,6 @@ use Data::Dumper;
 use JSON::XS qw(decode_json);
 use LWP::UserAgent;
 use Net::DNS;
-use Net::DNS::RR;
-use Net::DNS::Resolver;
-use Net::DNS::Update;
 
 use APNIC::DNSRRR::DS;
 use APNIC::DNSRRR::Utils qw(get_resolver
