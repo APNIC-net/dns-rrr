@@ -6,10 +6,12 @@ use strict;
 use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Client;
 use APNIC::DNSRRR::Utils qw(is_sep
-                            domain_to_parent);
+                            domain_to_parent
+                            ds_to_matching_dnskeys);
 use HTTP::Status qw(:constants);
 use JSON::XS qw(decode_json);
 use List::Util qw(first);
+use List::MoreUtils qw(uniq);
 use LWP::UserAgent;
 use Net::DNS;
 use YAML;
@@ -20,7 +22,7 @@ use APNIC::DNSRRR::Test::Utils qw(start_test_servers
                                   generate_new_ksk
                                   roll_ksk);
 
-use Test::More tests => 16;
+use Test::More tests => 21;
 
 my $pids;
 
@@ -92,8 +94,25 @@ my $pids;
     ok($res, "Put CDS records successfully");
     sleep(1);
 
-    @ds = rr($parent_resolver, $domain, 'DS');
-    is(@ds, 2, 'Two DS records at parent');
+    my @ds_rrs = rr($parent_resolver, $domain, 'DS');
+    is(@ds_rrs, 2, 'Two DS records at parent');
+
+    my @tags;
+    for my $ds_rr (@ds_rrs) {
+        my @matching = ds_to_matching_dnskeys($ds_rr, \@dnskeys);
+        my $tag = $ds_rr->keytag();
+        push @tags, $tag;
+        is(@matching, 1, "Found DNSKEY for DS record ($tag)");
+        ok(is_sep($matching[0]), "DNSKEY has the SEP flag");
+    }
+    @tags = uniq @tags;
+
+    my @ctags =
+        uniq
+        map  { $_->keytag() }
+        grep { is_sep($_) }
+            @dnskeys;
+    is_deeply(\@tags, \@ctags, 'DS records exist for all SEP keys');
 }
 
 END {
