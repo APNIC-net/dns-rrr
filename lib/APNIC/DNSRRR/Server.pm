@@ -118,15 +118,14 @@ sub generate_ds_records
 {
     my ($self, $cds_rrs, $cdnskey_rrs) = @_;
 
-    my %sep_keys_by_tag =
-        map  { $_->keytag() => $_ }
-        grep { is_sep($_) }
-            @{$cdnskey_rrs};
+    my @sep_cdnskey_rrs = grep { is_sep($_) } @{$cdnskey_rrs};
 
     my @ds_rrs;
     if ($self->{"ds_from"} eq "CDS") {
         my @sep_cds_rrs =
-            grep { $sep_keys_by_tag{$_->keytag()} }
+            grep { my @matching_rrs =
+                       ds_to_matching_dnskeys($_, \@sep_cdnskey_rrs);
+                   (@matching_rrs ? 1 : 0) }
                 @{$cds_rrs};
         @ds_rrs =
             map { my $data = $_->string();
@@ -134,7 +133,7 @@ sub generate_ds_records
                   Net::DNS::RR->new($data) }
                 @sep_cds_rrs;
     } else {
-        for my $cdnskey_rr (values %sep_keys_by_tag) {
+        for my $cdnskey_rr (@sep_cdnskey_rrs) {
             for my $digest_type (@{$self->{"ds_digests"}}) {
                 my $ds_rr = eval {
                     Net::DNS::RR::DS->create($cdnskey_rr,
