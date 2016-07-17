@@ -8,7 +8,8 @@ use APNIC::DNSRRR::Utils qw(get_resolver
                             sign_update
                             is_sep
                             domain_to_parent
-                            ds_to_matching_dnskeys);
+                            ds_to_matching_dnskeys
+                            rrsets_are_equal);
 
 use Bytes::Random::Secure;
 use Data::Dumper;
@@ -241,26 +242,6 @@ sub has_matching_dnskeys
             first { $_->string() eq $cdnskey_string }
                 @dnskey_rrs;
         if (not $match) {
-            return;
-        }
-    }
-
-    return 1;
-}
-
-sub rrsets_are_equal
-{
-    my ($set_one, $set_two) = @_;
-
-    if (@{$set_one} != @{$set_two}) {
-        return;
-    }
-
-    my @strings_one = sort map { $_->string() } @{$set_one};
-    my @strings_two = sort map { $_->string() } @{$set_two};
-
-    for (my $i = 0; $i < @strings_one; $i++) {
-        if ($strings_one[$i] ne $strings_two[$i]) {
             return;
         }
     }

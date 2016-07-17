@@ -55,7 +55,6 @@ my $pids;
     is(@c_rrs, 0, "No CDS/CDNSKEY records present for domain");
     $res = $client->create_cds($domain);
     ok($res, "Created CDS records successfully");
-    sleep(1);
     my @cdnskey_rrs = rr($resolver, $domain, "CDNSKEY");
     is(@cdnskey_rrs, 2, "Two CDNSKEYs present in domain");
     my @dnskey_rrs = rr($resolver, $domain, "DNSKEY");
@@ -81,7 +80,6 @@ my $pids;
 
     my $parent = domain_to_parent($domain);
     my $parent_resolver = get_resolver($client, $parent);
-    sleep(1);
     my @ds_rrs = rr($parent_resolver, $domain, "DS");
     is(@ds_rrs, 2, "Two DS records present in parent domain");
 

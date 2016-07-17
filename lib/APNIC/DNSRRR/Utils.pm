@@ -10,7 +10,8 @@ our @EXPORT_OK = qw(get_resolver
                     sign_update
                     is_sep
                     domain_to_parent
-                    ds_to_matching_dnskeys);
+                    ds_to_matching_dnskeys
+                    rrsets_are_equal);
 
 use base qw(Exporter);
 
@@ -76,6 +77,32 @@ sub ds_to_matching_dnskeys
             @{$dnskey_rrs};
 
     return @matching_dnskey_rrs;
+}
+
+sub rrsets_are_equal
+{
+    my ($set_one, $set_two, $ignore_ttl) = @_;
+
+    if (@{$set_one} != @{$set_two}) {
+        return;
+    }
+
+    if ($ignore_ttl) {
+        for my $obj (@{$set_one}, @{$set_two}) {
+            $obj->ttl(0);
+        }
+    }
+
+    my @strings_one = sort map { $_->string() } @{$set_one};
+    my @strings_two = sort map { $_->string() } @{$set_two};
+
+    for (my $i = 0; $i < @strings_one; $i++) {
+        if ($strings_one[$i] ne $strings_two[$i]) {
+            return;
+        }
+    }
+
+    return 1;
 }
 
 1;

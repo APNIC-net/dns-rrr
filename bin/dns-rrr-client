@@ -14,12 +14,10 @@ if ($command eq '--initialise') {
     my $rr = $client->generate_token($domain);
     $client->add_token($domain, $rr);
     $client->create_cds($domain);
-    sleep(1);
     $client->post_cds($domain);
     $client->remove_token($domain, $rr);
 } elsif ($command eq '--update') {
     $client->create_cds($domain);
-    sleep(1);
     $client->put_cds($domain);
 } elsif ($command eq '--delete') {
     $client->delete_cds($domain);

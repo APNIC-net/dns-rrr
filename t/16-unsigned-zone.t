@@ -38,8 +38,6 @@ my $pids;
     ok($res, "Added token successfully");
     $res = $client->create_cds($domain);
     ok($res, "Created CDS records successfully");
-    sleep(1);
-    
     unsign_zone($domain);
     $res = eval { $client->post_cds($domain); };
     ok((not $res), "Failed to post CDS records");

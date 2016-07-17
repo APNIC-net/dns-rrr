@@ -35,7 +35,6 @@ my $pids;
     ok($res, "Added token successfully");
     $res = $client->create_cds($domain);
     ok($res, "Created CDS records successfully");
-    sleep(1);
     $res = $client->post_cds($domain);
     ok($res, "Posted CDS records successfully");
     sleep(1);

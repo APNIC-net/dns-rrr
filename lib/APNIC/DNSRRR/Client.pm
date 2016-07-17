@@ -5,12 +5,14 @@ use strict;
 
 use APNIC::DNSRRR::DS;
 use APNIC::DNSRRR::Utils qw(get_resolver
-                            sign_update);
+                            sign_update
+                            rrsets_are_equal);
 
 use Data::Dumper;
 use JSON::XS qw(decode_json);
 use LWP::UserAgent;
 use Net::DNS;
+use Time::HiRes qw(sleep);
 
 our $VERSION = "0.1";
 
@@ -34,6 +36,24 @@ sub new
     $self->{"ua"} = $ua;
     bless $self, $class;
     return $self;
+}
+
+sub wait_for_records
+{
+    my ($self, $domain, $name, $rr_type, $expected_rrs) = @_;
+
+    my $resolver = get_resolver($self, $domain);
+    my $timeout = 300;
+    while ($timeout > 0) {
+        my @rrs = rr($resolver, $name, $rr_type);
+        if (rrsets_are_equal(\@rrs, $expected_rrs, 1)) {
+            return 1;
+        }
+        $timeout--;
+        sleep(0.1);
+    }
+
+    die "Expected records were not found (timed out)";
 }
 
 sub send_request
@@ -111,14 +131,21 @@ sub create_cds
 
     my $resolver = get_resolver($self, $domain);
     my @dnskey_rrs = rr($resolver, $domain, "DNSKEY");
+    my @cds_rrs;
+    my @cdnskey_rrs;
     for my $dnskey_rr (@dnskey_rrs) {
         my $string = $dnskey_rr->string();
         $string =~ s/DNSKEY/CDNSKEY/;
-        $update->push(update => rr_add($string));
+        push @cdnskey_rrs, Net::DNS::RR::CDNSKEY->new($string);
         for my $digtype (@{$self->{"cds_digest_types"}}) {
-            my $cds = Net::DNS::RR::CDS->create($dnskey_rr, digtype => $digtype);
-            $update->push(update => rr_add($cds->string()));
+            my $cds_rr =
+                Net::DNS::RR::CDS->create($dnskey_rr,
+                                          digtype => $digtype);
+            push @cds_rrs, $cds_rr;
         }
+    }
+    for my $update_rr (@cdnskey_rrs, @cds_rrs) {
+        $update->push(update => rr_add($update_rr->string()));
     }
 
     sign_update($self, $domain, $update);
@@ -126,6 +153,9 @@ sub create_cds
     if ((not $reply) or ($reply->header()->rcode() ne "NOERROR")) {
         die "Unable to create CDS records: ".Dumper($reply);
     }
+
+    $self->wait_for_records($domain, $domain, 'CDNSKEY', \@cdnskey_rrs);
+    $self->wait_for_records($domain, $domain, 'CDS',     \@cds_rrs);
 
     return 1;
 }
@@ -167,13 +197,15 @@ sub delete_cds
     my $update = Net::DNS::Update->new($domain, "IN");
     $update->push(update => rr_del("$domain CDS"));
     $update->push(update => rr_del("$domain CDNSKEY"));
-    $update->push(update => rr_add("$domain CDS 1 0 1 1"));
+    my $cds_string = "$domain CDS 1 0 1 1";
+    $update->push(update => rr_add($cds_string));
     sign_update($self, $domain, $update);
     my $reply = $resolver->send($update);
     if ((not $reply) or ($reply->header()->rcode() ne "NOERROR")) {
         die "Unable to create zero-algorithm CDS record: ".Dumper($reply);
     }
-    sleep(1);
+    $self->wait_for_records($domain, $domain, 'CDS',
+                            [ Net::DNS::RR->new($cds_string) ]);
 
     my $res = $self->send_request("delete", $domain, "/cds");
     if (not $res->is_success()) {
