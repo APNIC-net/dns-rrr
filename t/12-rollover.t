@@ -83,7 +83,7 @@ my $pids;
     my $parent = domain_to_parent($domain);
     my $parent_resolver = $client->get_resolver($parent);
     my @ds = rr($parent_resolver, $domain, 'DS');
-    is(@ds, 2, 'Two DS records at parent');
+    is(@ds, 4, 'Four DS records at parent');
 
     my $old_ksk = first { is_sep($_) } @dnskeys;
     my $old_tag = $old_ksk->keytag();
@@ -117,7 +117,7 @@ my $pids;
     sleep(1);
 
     @ds = rr($parent_resolver, $domain, 'DS');
-    is(@ds, 1, 'One DS record at parent');
+    is(@ds, 2, 'Two DS records at parent');
 }
 
 END {

@@ -76,7 +76,7 @@ my $pids;
     my $parent = domain_to_parent($domain);
     my $parent_resolver = $client->get_resolver($parent);
     my @ds = rr($parent_resolver, $domain, 'DS');
-    is(@ds, 1, 'Still one DS record at parent');
+    is(@ds, 2, 'Still two DS records at parent');
 
     my $old_ksk = first { is_sep($_) } @dnskeys;
     my $old_tag = $old_ksk->keytag();
