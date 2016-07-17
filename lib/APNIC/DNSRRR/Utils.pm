@@ -3,6 +3,7 @@ package APNIC::DNSRRR::Utils;
 use warnings;
 use strict;
 
+use Net::DNS;
 use Scalar::Util qw(blessed);
 
 our @EXPORT_OK = qw(get_resolver
@@ -21,7 +22,14 @@ sub get_resolver
     my $resolver = Net::DNS::Resolver->new();
     if ($details->{"server"}) {
         $resolver->nameservers($details->{"server"});
+    } else {
+        my ($soa) = rr($resolver, $domain, "SOA");
+        if (not $soa) {
+            die "Unable to get SOA record for $domain";
+        }
+        $resolver->nameservers($soa->mname());
     }
+
     return $resolver;
 }
 
