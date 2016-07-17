@@ -16,9 +16,11 @@ use YAML;
 
 use lib './t/lib';
 use APNIC::DNSRRR::Test::Utils qw(start_test_servers
-                                  stop_test_servers);
+                                  stop_test_servers
+                                  generate_new_ksk
+                                  roll_ksk);
 
-use Test::More tests => 16;
+use Test::More tests => 14;
 
 my $pids;
 
@@ -36,9 +38,6 @@ my $pids;
     );
     my $domain = 'us.example.com';
     my $rr = $client->generate_token($domain);
-    is($rr->type(), 'TXT', 'RR is a TXT record');
-    is($rr->name(), $domain, 'RR has correct name');
-
     $res = $client->add_token($domain, $rr);
     ok($res, "Added token successfully");
     $res = $client->create_cds($domain);
@@ -53,17 +52,7 @@ my $pids;
     is(@dnskeys, 2, 'Got existing DNSKEYs from domain');
     my %dnskeys_by_tag = map { $_->keytag() => $_ } @dnskeys;
 
-    my ($id) = `docker ps | grep bind_child | cut -f 1 -d' '`;
-    chomp $id;
-    my ($json) = `docker inspect -f '{{json .Mounts }}' $id`;
-    $data = decode_json($json);
-    my $path = $data->[0]->{'Source'};
-    my $keydir = "$path/bind/etc/keys";
-    my (@keygen_content) = `dnssec-keygen -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE us.example.com. 2>/dev/null`;
-    my $keypath = $keygen_content[$#keygen_content];
-    chomp $keypath;
-    system("mv $keypath* $keydir");
-    system("rndc -c ./testing/01_child/rndc.config loadkeys us.example.com.");
+    generate_new_ksk($domain);
     sleep(1);
     my @new_dnskeys = rr($resolver, $domain, 'DNSKEY');
     is(@new_dnskeys, 3, 'New DNSKEY added to domain');
@@ -80,20 +69,7 @@ my $pids;
 
     my $old_ksk = first { is_sep($_) } @dnskeys;
     my $old_tag = $old_ksk->keytag();
-    my @old_paths = map { chomp; $_ } `ls $keydir/*$old_tag*`;
-    my $key_path = first { /\.key$/ } @old_paths;
-
-    system("rndc -c ./testing/01_child/rndc.config sign us.example.com.");
-    sleep(1);
-    my @rndc_keys = 
-        map { chomp; $_ }
-            `rndc -c ./testing/01_child/rndc.config signing -list us.example.com.`;
-    my $to_remove = first { /$old_tag/ } @rndc_keys;
-    $to_remove =~ s/.* key //;
-
-    system("dnssec-settime -I +0 -D +0 $key_path >/dev/null 2>&1");
-    system("rndc -c ./testing/01_child/rndc.config signing -clear $to_remove us.example.com. >/dev/null 2>&1");
-    system("rndc -c ./testing/01_child/rndc.config loadkeys us.example.com.");
+    roll_ksk($domain, $old_tag);
     sleep(1);
 
     @dnskeys = rr($resolver, $domain, 'DNSKEY');

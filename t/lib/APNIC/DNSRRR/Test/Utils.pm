@@ -5,8 +5,13 @@ use strict;
 
 use APNIC::DNSRRR::Server;
 
+use JSON::XS qw(decode_json);
+use List::Util qw(first);
+
 our @EXPORT_OK = qw(start_test_servers
-                    stop_test_servers);
+                    stop_test_servers
+                    generate_new_ksk
+                    roll_ksk);
 
 use base qw(Exporter);
 
@@ -47,6 +52,70 @@ sub stop_test_servers
     } 
 
     system("./testing/stop.sh >/dev/null");
+}
+
+sub get_keydir
+{
+    my ($domain) = @_;
+
+    my $container_name =
+        ($domain eq 'example.com')
+            ? 'bind_parent'
+            : 'bind_child';
+
+    my ($id) = `docker ps | grep $container_name | cut -f 1 -d' '`;
+    chomp $id;
+    my ($json) = `docker inspect -f '{{json .Mounts }}' $id`;
+    my $data = decode_json($json);
+    my $path = $data->[0]->{'Source'};
+    my $keydir = "$path/bind/etc/keys";
+
+    return $keydir;
+}
+
+sub generate_new_ksk
+{
+    my ($domain) = @_;
+
+    my $keydir = get_keydir($domain);
+    my (@keygen_content) =
+        `dnssec-keygen -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE $domain. 2>/dev/null`;
+    my $keypath = $keygen_content[$#keygen_content];
+    chomp $keypath;
+    system("mv $keypath* $keydir");
+    system("rndc -c ./testing/01_child/rndc.config loadkeys us.example.com.");
+
+    return 1;
+}
+
+sub roll_ksk
+{
+    my ($domain, $previous_ksk_tag) = @_;
+
+    my $keydir = get_keydir($domain);
+    my @previous_paths = map { chomp; $_ } `ls $keydir/*$previous_ksk_tag*`;
+    my $previous_path = first { /\.key$/ } @previous_paths;
+
+    my $config_dir =
+        ($domain eq 'example.com')
+            ? '00_parent'
+            : '01_child';
+    my $config_path = "./testing/$config_dir/rndc.config";
+
+    system("rndc -c $config_path sign $domain.");
+    sleep(1);
+    my @rndc_keys =
+        map { chomp; $_ }
+            `rndc -c $config_path signing -list $domain.`;
+    my $to_remove = first { /$previous_ksk_tag/ } @rndc_keys;
+    $to_remove =~ s/.* key //;
+
+    system("dnssec-settime -I +0 -D +0 $previous_path >/dev/null 2>&1");
+    system("rndc -c $config_path signing -clear $to_remove $domain. ".
+           ">/dev/null 2>&1");
+    system("rndc -c $config_path loadkeys $domain.");
+
+    return 1;
 }
 
 1;
