@@ -5,3 +5,7 @@ domains:
     server: 127.0.0.3
     tsig: "jQejSTQEKTBA1RcU0GkwEQ=="
     dns-rrr-server: http://127.0.0.1:34517
+  invalid_domain:
+    server: 127.0.0.3
+    tsig: "jQejSTQEKTBA1RcU0GkwEQ=="
+    dns-rrr-server: http://127.0.0.1:34517

@@ -40,8 +40,11 @@ sub send_request
 {
     my ($self, $method, $domain, $path) = @_;
 
-    my $details = $self->{"domains"}->{$domain};
+    my $details = $self->{"domains"}->{$domain} || {};
     my $dnsrrr_server = $details->{"dns-rrr-server"};
+    if (not $dnsrrr_server) {
+        die "No dns-rrr-server configured for domain '$domain'";
+    }
     my $ua = $self->{"ua"};
     my $res = $ua->$method("$dnsrrr_server/domains/$domain$path");
     return $res;
