@@ -72,6 +72,29 @@ sub add_token
     return 1;
 }
 
+sub remove_required_records
+{
+    my ($self, $domain) = @_;
+
+    for my $type (qw(cds cdnskey)) {
+        if ($self->{'keep_'.$type}) {
+            next;
+        }
+        my $rr_type = uc $type;
+        my $resolver = get_resolver($self, $domain);
+        my @rrs = rr($resolver, $domain, $rr_type);
+        my $update = Net::DNS::Update->new($domain, 'IN');
+        $update->push(update => rr_del("$domain $rr_type"));
+        sign_update($self, $domain, $update);
+        my $reply = $resolver->send($update);
+        if ((not $reply) or ($reply->header()->rcode() ne 'NOERROR')) {
+            warn "Unable to remove $rr_type records: ".Dumper($reply);
+        }
+    }
+
+    return 1;
+}
+
 sub create_cds
 {
     my ($self, $domain) = @_;
@@ -111,6 +134,8 @@ sub post_cds
     if (not $res->is_success()) {
         die "Unable to post CDS records: ".Dumper($res);
     }
+
+    $self->remove_required_records($domain);
 
     return 1;
 }
@@ -161,6 +186,8 @@ sub delete_cds
         die "Unable to delete CDS records: ".Dumper($res);
     }
 
+    $self->remove_required_records($domain);
+
     return 1;
 }
 
@@ -198,6 +225,8 @@ sub put_cds
     if (not $res->is_success()) {
         die "Unable to update CDS records: ".Dumper($res);
     }
+
+    $self->remove_required_records($domain);
 
     return 1;
 }

@@ -46,6 +46,8 @@ Client configuration is like so:
         dns-rrr-server: {dns-rrr-server-url}
       ...
     cds_digests: [{SHA-1|SHA-256|SHA-384|GOST}, ...]
+    keep_cds: {1|0}
+    keep_cdnskey: {1|0}
 
 `domains` is the same as for server configuration, except that each
 domain for which updates will be sent must be present, and each domain
@@ -53,6 +55,8 @@ must have an additional `dns-rrr-server` entry pointing to the server
 providing this protocol for that domain.  `cds_digests` is the set of
 digest algorithms for which CDS records should be generated (defaults
 to SHA-1 and SHA-256).be generated (defaults to SHA-1 and SHA-256).
+`keep_cds` and `keep_cdnskey` indicate whether records of those types
+should be deleted after use (defaults to true for both).
 
 ## Example usage
 

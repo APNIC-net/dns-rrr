@@ -35,6 +35,8 @@ my $pids;
     my $client = APNIC::DNSRRR::Client->new(
         %{YAML::LoadFile('testing/config-client.yml')}
     );
+    $client->{'keep_cds'} = 1;
+    $client->{'keep_cdnskey'} = 1;
     my $domain = 'us.example.com';
     my $rr = $client->generate_token($domain);
     $res = $client->add_token($domain, $rr);
