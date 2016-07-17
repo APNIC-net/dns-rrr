@@ -9,3 +9,7 @@ domains:
     server: 127.0.0.3
     tsig: "jQejSTQEKTBA1RcU0GkwEQ=="
     dns-rrr-server: http://127.0.0.1:34517
+  no.parent.example.com:
+    server: 127.0.0.3
+    tsig: "jQejSTQEKTBA1RcU0GkwEQ=="
+    dns-rrr-server: http://127.0.0.1:34517

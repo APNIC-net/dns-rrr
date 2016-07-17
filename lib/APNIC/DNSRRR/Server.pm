@@ -559,6 +559,14 @@ sub run
                                                "Invalid domain name"));
                 next;
             }
+            my $parent = domain_to_parent($domain);
+            my $details = $self->{'domains'}->{$parent};
+            if (not $details) {
+                print STDERR "Unable to process request: unhandled domain\n";
+                $c->send_response($self->error(HTTP_BAD_REQUEST,
+                                               "Unhandled domain name"));
+                next;
+            }
 
             my @args = ($c, $r, $domain, $rest);
             my $res = eval {
