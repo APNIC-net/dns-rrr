@@ -3,8 +3,8 @@ package APNIC::DNSRRR::DS;
 use warnings;
 use strict;
 
-use Net::DNS::RR::DS;
 use Carp qw(croak);
+use Net::DNS::RR::DS;
 
 # This package adds 0 (UNDEFINED) as a 'valid' DNSSEC algorithm, to
 # support removal of DS records.  See section 4 of

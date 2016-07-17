@@ -3,12 +3,13 @@
 use warnings;
 use strict;
 
-use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Client;
+use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Utils qw(get_resolver
                             domain_to_parent
                             is_sep
                             ds_to_matching_dnskeys);
+
 use HTTP::Status qw(:constants);
 use JSON::XS qw(decode_json);
 use List::MoreUtils qw(uniq);

@@ -3,10 +3,11 @@
 use warnings;
 use strict;
 
-use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Client;
+use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Utils qw(get_resolver
                             domain_to_parent);
+
 use HTTP::Status qw(:constants);
 use JSON::XS qw(decode_json);
 use LWP::UserAgent;

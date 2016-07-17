@@ -3,14 +3,14 @@ package APNIC::DNSRRR::Client;
 use warnings;
 use strict;
 
+use APNIC::DNSRRR::DS;
+use APNIC::DNSRRR::Utils qw(get_resolver
+                            sign_update);
+
 use Data::Dumper;
 use JSON::XS qw(decode_json);
 use LWP::UserAgent;
 use Net::DNS;
-
-use APNIC::DNSRRR::DS;
-use APNIC::DNSRRR::Utils qw(get_resolver
-                            sign_update);
 
 our $VERSION = "0.1";
 

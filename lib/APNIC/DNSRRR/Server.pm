@@ -3,6 +3,13 @@ package APNIC::DNSRRR::Server;
 use warnings;
 use strict;
 
+use APNIC::DNSRRR::DS;
+use APNIC::DNSRRR::Utils qw(get_resolver
+                            sign_update
+                            is_sep
+                            domain_to_parent
+                            ds_to_matching_dnskeys);
+
 use Bytes::Random::Secure;
 use Data::Dumper;
 use HTTP::Daemon;
@@ -11,13 +18,6 @@ use JSON::XS qw(encode_json);
 use List::MoreUtils qw(uniq);
 use List::Util qw(first);
 use Net::DNS;
-
-use APNIC::DNSRRR::DS;
-use APNIC::DNSRRR::Utils qw(get_resolver
-                            sign_update
-                            is_sep
-                            domain_to_parent
-                            ds_to_matching_dnskeys);
 
 use constant TOKEN_EXPIRY_SECONDS => 300;
 use constant DS_FROM => (qw(CDS CDNSKEY));

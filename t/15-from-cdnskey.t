@@ -3,14 +3,15 @@
 use warnings;
 use strict;
 
-use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Client;
+use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Utils qw(is_sep
                             domain_to_parent);
+
 use HTTP::Status qw(:constants);
 use JSON::XS qw(decode_json);
-use List::Util qw(first);
 use List::MoreUtils qw(uniq);
+use List::Util qw(first);
 use LWP::UserAgent;
 use Net::DNS;
 use YAML;

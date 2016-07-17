@@ -3,8 +3,9 @@
 use warnings;
 use strict;
 
-use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Client;
+use APNIC::DNSRRR::Server;
+
 use HTTP::Status qw(:constants);
 use JSON::XS qw(decode_json);
 use List::Util qw(first);
