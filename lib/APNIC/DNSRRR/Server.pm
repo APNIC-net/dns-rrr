@@ -74,7 +74,7 @@ sub error
         $response->content($data);
         $response->header('Content-Type' => 'application/problem+json');
     }
-    return $c->send_response($response);
+    return $response;
 }
 
 sub success
@@ -87,7 +87,7 @@ sub success
         $response->content(encode_json($data));
         $response->header('Content-Type' => 'application/json');
     }
-    return $c->send_response($response);
+    return $response;
 }
 
 sub post_token
@@ -553,14 +553,23 @@ sub run
     while (my $c = $d->accept()) {
         while (my $r = $c->get_request()) {
             my $method = $r->method();
-            if ($method eq 'POST') {
-                $self->post($c, $r);
-            } elsif ($method eq 'DELETE') {
-                $self->delete($c, $r);
-            } elsif ($method eq 'PUT') {
-                $self->put($c, $r);
+            my $path = $r->uri()->path();
+            print STDERR "$method $path\n";
+            my $res = eval {
+                ($method eq 'POST')   ? $self->post($c, $r)
+              : ($method eq 'DELETE') ? $self->delete($c, $r)
+              : ($method eq 'PUT')    ? $self->put($c, $r)
+                                      : $self->error($c, HTTP_NOT_FOUND);
+            };
+            if (my $error = $@) {
+                print STDERR "Unable to process request: $error\n";
+                $c->send_response($self->error(HTTP_INTERNAL_SERVER_ERROR));
             } else {
-                $self->error($c, HTTP_NOT_FOUND);
+                my $res_str = $res->as_string();
+                $res_str =~ s/\n/\\n/g;
+                $res_str =~ s/\r/\\r/g;
+                print STDERR "$res_str\n";
+                $c->send_response($res);
             }
         }
         $c->close();

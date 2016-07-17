@@ -34,6 +34,9 @@ sub start_test_servers
         push @pids, $pid;
         push @servers, $server;
     } else {
+        if (not $ENV{'DNSRRR_DEBUG'}) {
+            close STDERR;
+        }
         $server->run();
         exit();
     }
