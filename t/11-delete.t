@@ -5,10 +5,12 @@ use strict;
 
 use APNIC::DNSRRR::Server;
 use APNIC::DNSRRR::Client;
+use APNIC::DNSRRR::Utils qw(get_resolver
+                            domain_to_parent);
 use HTTP::Status qw(:constants);
 use JSON::XS qw(decode_json);
 use LWP::UserAgent;
-use Net::DNS::RR;
+use Net::DNS;
 use YAML;
 
 use lib './t/lib';
@@ -33,9 +35,6 @@ my $pids;
     );
     my $domain = 'us.example.com';
     my $rr = $client->generate_token($domain);
-    is($rr->type(), 'TXT', 'RR is a TXT record');
-    is($rr->name(), $domain, 'RR has correct name');
-
     $res = $client->add_token($domain, $rr);
     ok($res, "Added token successfully");
     $res = $client->create_cds($domain);
@@ -44,8 +43,19 @@ my $pids;
     $res = $client->post_cds($domain);
     ok($res, "Posted CDS records successfully");
     sleep(1);
-    $res = $client->delete_cds($domain);
+
+    my $parent = domain_to_parent($domain);
+    my $parent_resolver = get_resolver($client, $parent);
+    my @ds_rrs = rr($parent_resolver, $domain, 'DS');
+    ok(@ds_rrs, 'DS records are present at parent');
+
+    $res = eval { $client->delete_cds($domain); };
+    diag $@ if $@;
     ok($res, "Deleted CDS records successfully");
+    sleep(1);
+
+    @ds_rrs = rr($parent_resolver, $domain, 'DS');
+    ok((not @ds_rrs), 'DS records are not present at parent');
 }
 
 END {
