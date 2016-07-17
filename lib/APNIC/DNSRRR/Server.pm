@@ -15,7 +15,8 @@ use APNIC::DNSRRR::DS;
 use APNIC::DNSRRR::Utils qw(get_resolver
                             sign_update
                             is_sep
-                            domain_to_parent);
+                            domain_to_parent
+                            ds_to_matching_dnskeys);
 
 use constant TOKEN_EXPIRY_SECONDS => 300;
 use constant DS_FROM => (qw(CDS CDNSKEY));
@@ -238,28 +239,21 @@ sub get_dnskeys
 
     my $resolver = get_resolver($self, $domain);
     my @dnskeys = rr($resolver, $domain, 'DNSKEY');
+
     my @rrsigs =
         grep { $_->typecovered() eq 'DNSKEY' }
             rr($resolver, $domain, 'RRSIG');
 
     my $parent = domain_to_parent($domain);
     my $parent_resolver = get_resolver($self, $parent);
+    my @ds_rrs = rr($parent_resolver, $domain, 'DS');
 
-    my %ds_rrs =
-        map { $_->keytag() => $_ }
-            rr($parent_resolver, $domain, 'DS');
-    my @ds_compare_rrs =
-        map { Net::DNS::RR::DS->create($_, digtype => 'SHA-256') }
-            @dnskeys;
-    my @ds_keep_rrs =
-        grep { my $key = $_;
-               my $ds = Net::DNS::RR::DS->create($key, digtype => 'SHA-256');
-               my $ds_rr = $ds_rrs{$key->keytag()};
-               $ds_rr and ($ds_rr->string() eq $ds->string()) }
-            @dnskeys;
+    my @dnskey_to_use_rrs =
+        map { ds_to_matching_dnskeys($_, \@dnskeys) }
+            @ds_rrs;
 
     for my $rrsig (@rrsigs) {
-        if ($rrsig->verify(\@dnskeys, \@ds_keep_rrs)) {
+        if ($rrsig->verify(\@dnskeys, \@dnskey_to_use_rrs)) {
             return @dnskeys;
         }
     }
