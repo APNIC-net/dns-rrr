@@ -55,19 +55,19 @@ sub domain_to_parent
 
 sub ds_to_matching_dnskeys
 {
-    my ($ds, $dnskeys) = @_;
+    my ($ds_rr, $dnskey_rrs) = @_;
 
-    my $pkg = blessed($ds);
-    my @matching_dnskeys =
-        grep { my $ds_cmp =
+    my $pkg = blessed($ds_rr);
+    my @matching_dnskey_rrs =
+        grep { my $ds_rr_cmp =
                    $pkg->create(
                        $_,
-                       digtype => $ds->digtype()
+                       digtype => $ds_rr->digtype()
                    );
-               $ds_cmp->string() eq $ds->string() }
-            @{$dnskeys};
+               $ds_rr_cmp->string() eq $ds_rr->string() }
+            @{$dnskey_rrs};
 
-    return @matching_dnskeys;
+    return @matching_dnskey_rrs;
 }
 
 1;

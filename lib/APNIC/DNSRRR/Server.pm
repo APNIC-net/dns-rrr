@@ -122,8 +122,8 @@ sub generate_ds_records
         map  { $_->keytag() => $_ }
         grep { is_sep($_) }
             @{$cdnskey_rrs};
-    my @ds_rrs;
 
+    my @ds_rrs;
     if ($self->{'ds_from'} eq 'CDS') {
         my @sep_cds_rrs =
             grep { $sep_keys_by_tag{$_->keytag()} }
@@ -134,17 +134,17 @@ sub generate_ds_records
                   Net::DNS::RR->new($data) }
                 @sep_cds_rrs;
     } else {
-        for my $cdnskey (values %sep_keys_by_tag) {
+        for my $cdnskey_rr (values %sep_keys_by_tag) {
             for my $digest_type (@{$self->{'ds_digests'}}) {
-                my $ds = eval {
-                    Net::DNS::RR::DS->create($cdnskey,
+                my $ds_rr = eval {
+                    Net::DNS::RR::DS->create($cdnskey_rr,
                                              digtype => $digest_type)
                 };
                 if (my $error = $@) {
                     warn "Unable to create digest of type ".
                          "'$digest_type': $error";
                 } else {
-                    push @ds_rrs, $ds;
+                    push @ds_rrs, $ds_rr;
                 }
             }
         }
@@ -158,9 +158,9 @@ sub get_dnskeys
     my ($self, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @dnskeys = rr($resolver, $domain, 'DNSKEY');
+    my @dnskey_rrs = rr($resolver, $domain, 'DNSKEY');
 
-    my @rrsigs =
+    my @rrsig_rrs =
         grep { $_->typecovered() eq 'DNSKEY' }
             rr($resolver, $domain, 'RRSIG');
 
@@ -168,13 +168,13 @@ sub get_dnskeys
     my $parent_resolver = get_resolver($self, $parent);
     my @ds_rrs = rr($parent_resolver, $domain, 'DS');
 
-    my @dnskey_to_use_rrs =
-        map { ds_to_matching_dnskeys($_, \@dnskeys) }
+    my @matching_dnskey_rrs =
+        map { ds_to_matching_dnskeys($_, \@dnskey_rrs) }
             @ds_rrs;
 
-    for my $rrsig (@rrsigs) {
-        if ($rrsig->verify(\@dnskeys, \@dnskey_to_use_rrs)) {
-            return @dnskeys;
+    for my $rrsig_rr (@rrsig_rrs) {
+        if ($rrsig_rr->verify(\@dnskey_rrs, \@matching_dnskey_rrs)) {
+            return @dnskey_rrs;
         }
     }
 
@@ -183,17 +183,17 @@ sub get_dnskeys
 
 sub validate_signatures
 {
-    my ($self, $domain, $record_type, $dnskeys) = @_;
+    my ($self, $domain, $rr_type, $dnskey_rrs) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @records = rr($resolver, $domain, $record_type);
-    my @rrsigs =
-        grep { $_->typecovered() eq $record_type }
+    my @rrs = rr($resolver, $domain, $rr_type);
+    my @rrsig_rrs =
+        grep { $_->typecovered() eq $rr_type }
             rr($resolver, $domain, 'RRSIG');
 
-    for my $rrsig (@rrsigs) {
-        if ($rrsig->verify(\@records, $dnskeys)) {
-            return @records;
+    for my $rrsig_rr (@rrsig_rrs) {
+        if ($rrsig_rr->verify(\@rrs, $dnskey_rrs)) {
+            return @rrs;
         }
     }
 
@@ -205,14 +205,14 @@ sub is_signed
     my ($self, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @dnskeys = rr($resolver, $domain, 'DNSKEY');
+    my @dnskey_rrs = rr($resolver, $domain, 'DNSKEY');
 
     for my $rr_type (qw(DNSKEY SOA)) {
-        my @valid_records =
+        my @valid_rrs =
             $self->validate_signatures(
-                $domain, $rr_type, \@dnskeys
+                $domain, $rr_type, \@dnskey_rrs
             );
-        if (not @valid_records) {
+        if (not @valid_rrs) {
             return;
         }
     }
@@ -222,30 +222,25 @@ sub is_signed
 
 sub has_matching_dnskeys
 {
-    my ($self, $domain, $cds_rrs, $cdnskeys) = @_;
+    my ($self, $domain, $cds_rrs, $cdnskey_rrs) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @dnskeys = rr($resolver, $domain, 'DNSKEY');
+    my @dnskey_rrs = rr($resolver, $domain, 'DNSKEY');
 
     for my $cds_rr (@{$cds_rrs}) {
-        my @matching = ds_to_matching_dnskeys($cds_rr, \@dnskeys);
-        if (not @matching) {
+        my @matching_rrs = ds_to_matching_dnskeys($cds_rr, \@dnskey_rrs);
+        if (not @matching_rrs) {
             return;
         }
     }
 
-    for my $cdnskey_rr (@{$cdnskeys}) {
-        my $cstring = $cdnskey_rr->string();
-        $cstring =~ s/CDNSKEY/DNSKEY/;
-        my $found = 0;
-        for my $dnskey (@dnskeys) {
-            my $string = $dnskey->string();
-            if ($cstring eq $string) {
-                $found = 1;
-                last;
-            }
-        }
-        if (not $found) {
+    for my $cdnskey_rr (@{$cdnskey_rrs}) {
+        my $cdnskey_string = $cdnskey_rr->string();
+        $cdnskey_string =~ s/CDNSKEY/DNSKEY/;
+        my $match =
+            first { $_->string() eq $cdnskey_string }
+                @dnskey_rrs;
+        if (not $match) {
             return;
         }
     }
@@ -300,13 +295,13 @@ sub nameservers_agree
     for my $nameserver (@final_nameservers) {
         my $ns_resolver = Net::DNS::Resolver->new();
         $ns_resolver->nameserver($nameserver);
-        my ($n_cds_rrs, $n_cdnskey_rrs) =
+        my ($ns_cds_rrs, $ns_cdnskey_rrs) =
             map { [ rr($ns_resolver, $domain, $_) ] }
                 qw(CDS CDNSKEY);
-        if (not rrsets_are_equal($cds_rrs, $n_cds_rrs)) {
+        if (not rrsets_are_equal($cds_rrs, $ns_cds_rrs)) {
             return;
         }
-        if (not rrsets_are_equal($cdnskey_rrs, $n_cdnskey_rrs)) {
+        if (not rrsets_are_equal($cdnskey_rrs, $ns_cdnskey_rrs)) {
             return;
         }
     }
@@ -319,8 +314,8 @@ sub post_cds
     my ($self, $c, $r, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @rrs = rr($resolver, "_delegate.$domain", "TXT");
-    if (not @rrs) {
+    my @txt_rrs = rr($resolver, "_delegate.$domain", "TXT");
+    if (not @txt_rrs) {
         return $self->error($c, HTTP_FORBIDDEN,
                             'No token record',
                             'No _delegate TXT token record was found.');
@@ -331,7 +326,7 @@ sub post_cds
                             'No token',
                             'No token has been generated for this domain.');
     }
-    my $matching_rr = first { $_->rdstring() eq $token } @rrs;
+    my $matching_rr = first { $_->rdstring() eq $token } @txt_rrs;
     if (not $matching_rr) {
         return $self->error($c, HTTP_FORBIDDEN,
                             'No matching token record',
@@ -343,8 +338,8 @@ sub post_cds
                             'No CDS records',
                             'No CDS records were found.');
     }
-    my @cdnskeys = rr($resolver, $domain, "CDNSKEY");
-    if (not @cdnskeys) {
+    my @cdnskey_rrs = rr($resolver, $domain, "CDNSKEY");
+    if (not @cdnskey_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'No CDNSKEY records',
                             'No CDNSKEY records were found.');
@@ -355,14 +350,14 @@ sub post_cds
                             'Zone validation failed',
                             'The zone is unsigned or invalidly signed.');
     }
-    $res = $self->has_matching_dnskeys($domain, \@cds_rrs, \@cdnskeys);
+    $res = $self->has_matching_dnskeys($domain, \@cds_rrs, \@cdnskey_rrs);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'Missing DNSKEYs for CDS/CDNSKEYs',
                             'One or more CDS/CDNSKEY records has no '.
                             'matching DNSKEY record.');
     }
-    $res = $self->nameservers_agree($domain, \@cds_rrs, \@cdnskeys);
+    $res = $self->nameservers_agree($domain, \@cds_rrs, \@cdnskey_rrs);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'Nameserver inconsistency',
@@ -370,7 +365,7 @@ sub post_cds
                             'inconsistent CDS/CDNSKEY RR sets.');
     }
 
-    my @ds_rrs = $self->generate_ds_records(\@cds_rrs, \@cdnskeys);
+    my @ds_rrs = $self->generate_ds_records(\@cds_rrs, \@cdnskey_rrs);
     if (not @ds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'No usable DS input',
@@ -385,9 +380,7 @@ sub post_cds
     for my $ds_rr (@ds_rrs) {
         $update->push(update => rr_add($ds_rr->string()));
     }
-
     sign_update($self, $parent, $update);
-
     my $reply = $parent_resolver->send($update);
     if ((not $reply) or ($reply->header()->rcode() ne 'NOERROR')) {
         warn("Unable to set DS records against server: ".Dumper($reply));
@@ -420,20 +413,20 @@ sub delete_cds
     my ($self, $c, $r, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @keys = $self->get_dnskeys($domain);
-    my @cdss = $self->validate_signatures($domain, "CDS", \@keys);
-    if (not @cdss) {
+    my @dnskey_rrs = $self->get_dnskeys($domain);
+    my @cds_rrs = $self->validate_signatures($domain, "CDS", \@dnskey_rrs);
+    if (not @cds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'No CDS records',
                             'No CDS records were found.');
     }
-    if (@cdss > 1) {
+    if (@cds_rrs > 1) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'Multiple CDS records',
                             'Multiple CDS records were found.');
     }
-    my $cds = $cdss[0];
-    if ($cds->algorithm() != 0) {
+    my $cds_rr = $cds_rrs[0];
+    if ($cds_rr->algorithm() != 0) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'Invalid CDS record',
                             'CDS record must have an algorithm of 0.');
@@ -442,11 +435,11 @@ sub delete_cds
     my $parent = domain_to_parent($domain);
     my $update = Net::DNS::Update->new($parent, 'IN');
     my $parent_resolver = get_resolver($self, $parent);
-
     $update->push(update => rr_del("$domain DS"));
     sign_update($self, $parent, $update);
     my $reply = $parent_resolver->send($update);
     if ((not $reply) or ($reply->header()->rcode() ne 'NOERROR')) {
+        warn("Unable to delete DS records from server: ".Dumper($reply));
         return $self->error($c, HTTP_INTERNAL_SERVER_ERROR,
                             'Internal error',
                             'Unable to delete DS records from server.');
@@ -472,15 +465,17 @@ sub put_cds
     my ($self, $c, $r, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @keys = $self->get_dnskeys($domain);
-    my @cdss = $self->validate_signatures($domain, "CDS", \@keys);
-    if (not @cdss) {
+    my @dnskey_rrs = $self->get_dnskeys($domain);
+    my @cds_rrs =
+        $self->validate_signatures($domain, "CDS", \@dnskey_rrs);
+    if (not @cds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'No CDS records',
                             'No CDS records were found.');
     }
-    my @cdnskeys = $self->validate_signatures($domain, "CDNSKEY", \@keys);
-    if (not @cdnskeys) {
+    my @cdnskey_rrs =
+        $self->validate_signatures($domain, "CDNSKEY", \@dnskey_rrs);
+    if (not @cdnskey_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'No CDNSKEY records',
                             'No CDNSKEY records were found.');
@@ -491,14 +486,14 @@ sub put_cds
                             'Zone validation failed',
                             'The zone is unsigned or invalidly signed.');
     }
-    $res = $self->has_matching_dnskeys($domain, \@cdss, \@cdnskeys);
+    $res = $self->has_matching_dnskeys($domain, \@cds_rrs, \@cdnskey_rrs);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'Missing DNSKEYs for CDS/CDNSKEYs',
                             'One or more CDS/CDNSKEY records has no '.
                             'matching DNSKEY record.');
     }
-    $res = $self->nameservers_agree($domain, \@cdss, \@cdnskeys);
+    $res = $self->nameservers_agree($domain, \@cds_rrs, \@cdnskey_rrs);
     if (not $res) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'Nameserver inconsistency',
@@ -506,7 +501,7 @@ sub put_cds
                             'inconsistent CDS/CDNSKEY RR sets.');
     }
 
-    my @ds_rrs = $self->generate_ds_records(\@cdss, \@cdnskeys);
+    my @ds_rrs = $self->generate_ds_records(\@cds_rrs, \@cdnskey_rrs);
     if (not @ds_rrs) {
         return $self->error($c, HTTP_BAD_REQUEST,
                             'No usable DS input',
@@ -521,7 +516,6 @@ sub put_cds
     for my $ds_rr (@ds_rrs) {
         $update->push(update => rr_add($ds_rr->string()));
     }
-
     sign_update($self, $parent, $update);
     my $reply = $parent_resolver->send($update);
     if ((not $reply) or ($reply->header()->rcode() ne 'NOERROR')) {
