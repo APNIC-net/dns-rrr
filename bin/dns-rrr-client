@@ -6,9 +6,29 @@ use strict;
 use APNIC::DNSRRR::Client;
 use YAML;
 
+sub usage
+{
+    print <<EOF;
+Usage: $0 {config-path} {domain} {command}
+
+{command} must be one of --initialise, --update, or --delete.
+EOF
+    exit 10;
+}
+
+if (@ARGV != 3) {
+    usage();
+}
+
 my ($path, $domain, $command) = @ARGV;
-my $config = YAML::LoadFile($path);
-my $client = APNIC::DNSRRR::Client->new(%{$config});
+my $client = eval {
+    my $config = YAML::LoadFile($path);
+    APNIC::DNSRRR::Client->new(%{$config});
+};
+if (my $error = $@) {
+    print STDERR $error;
+    usage();
+}
 
 if ($command eq '--initialise') {
     my $rr = $client->generate_token($domain);
@@ -23,6 +43,7 @@ if ($command eq '--initialise') {
     $client->delete_cds($domain);
 } else {
     print STDERR "unknown command '$command'\n";
+    usage();
 }
 
 1;
