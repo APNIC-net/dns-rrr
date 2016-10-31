@@ -1,2 +1,2 @@
 #!/bin/sh
-dnssec-keygen -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE $1
+dnssec-keygen -r /dev/urandom -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE $1
