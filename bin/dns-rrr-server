@@ -6,6 +6,18 @@ use strict;
 use APNIC::DNSRRR::Server;
 use YAML;
 
+sub usage
+{
+    print <<EOF;
+Usage: $0 {config-path}
+EOF
+    exit 10;
+}
+
+if (not @ARGV) {
+    usage();
+}
+
 my $config = YAML::LoadFile($ARGV[0]);
 my $server = APNIC::DNSRRR::Server->new(%{$config});
 print "Running on port ".$server->{'port'}."...\n";
