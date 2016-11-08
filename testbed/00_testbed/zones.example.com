@@ -12,15 +12,3 @@ $ORIGIN example.com.
 ; server host definitions
 ns1    IN  A      127.0.0.4  ;name server definition     
 www    IN  A      127.0.0.4  ;web server definition
-
-$ORIGIN sd0
-@       IN  NS  ns1
-ns1     IN  A   127.0.0.4
-
-$ORIGIN sd1
-@       IN  NS  ns1
-ns1     IN  A   127.0.0.4
-
-$ORIGIN sd2
-@       IN  NS  ns1
-ns1     IN  A   127.0.0.4

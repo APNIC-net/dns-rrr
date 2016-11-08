@@ -3,9 +3,12 @@
 use warnings;
 use strict;
 
+use Data::Dumper;
 use HTTP::Daemon;
 use HTTP::Response;
 use JSON::XS qw(encode_json);
+use List::Util qw(first);
+use Net::DNS;
 
 my $DNSSEC_PARTS = <<EOF;
     key-directory "/etc/bind/keys";
@@ -14,6 +17,8 @@ my $DNSSEC_PARTS = <<EOF;
 EOF
 
 my $count = 0;
+my $tsig;
+my $nameserver;
 
 sub generate_zone
 {
@@ -27,6 +32,19 @@ sub generate_zone
     $zone_name_np =~ s/\.$//;
     $count++;
 
+    # Add an NS record to the parent.
+    my $resolver = Net::DNS::Resolver->new();
+    $resolver->nameservers($nameserver);
+    my $update = Net::DNS::Update->new("example.com", "IN");
+    $update->push(update => rr_add("$zone_name NS ns1.$zone_name_np"));
+    $update->sign_tsig("example.com", $tsig);
+    my $reply = $resolver->send($update);
+    if ((not $reply) or ($reply->header()->rcode() ne "NOERROR")) {
+        warn "Unable to add NS record to parent: ".
+             Dumper($reply, $nameserver, $tsig, $update);
+        return;
+    }
+
     # Generate a key for the zone.
     my $path = `dnssec-keygen -r /dev/urandom -a HMAC-MD5 -b 128 -n HOST $zone_name`;
     chomp $path;
@@ -39,7 +57,8 @@ sub generate_zone
         }
     }
     if (not $key) {
-        die "Unable to generate/retrieve key";
+        warn "Unable to generate/retrieve key";
+        return;
     }
     close $fh;
     system("rm $path.*");
@@ -93,10 +112,18 @@ EOF
     close $fh;
 
     # Refresh bind's configuration.
-    system("perl /etc/bind/process-named-conf.pl /etc/bind/named.conf.local.template /etc/bind/named.conf.local");
+    my $res = system("perl /etc/bind/process-named-conf.pl /etc/bind/named.conf.local.template /etc/bind/named.conf.local");
+    if ($res != 0) {
+        warn "Unable to refresh bind's configuration";
+        return;
+    }
 
     # Reload bind's configuration.
-    system("rndc -c /root/rndc.config reconfig");
+    $res = system("rndc -c /root/rndc.config reconfig");
+    if ($res != 0) {
+        warn "Unable to reload bind's configuration";
+        return;
+    }
 
     return ($zone_name, $key);
 }
@@ -109,17 +136,35 @@ sub handle_request
     my ($zone_name, $key) = generate_zone($args{'auto-dnssec'});
 
     my $res = HTTP::Response->new();
-    $res->code(200);
-    $res->header('Content-Type' => 'application/json');
-    $res->content(encode_json({ name => $zone_name,
-                                key  => $key }));
-    $c->send_response($res);
+    if (not $zone_name) {
+        $res->code(500);
+        $c->send_response($res);
+    } else {
+        $res->code(200);
+        $res->header('Content-Type' => 'application/json');
+        $res->content(encode_json({ name => $zone_name,
+                                    key  => $key }));
+        $c->send_response($res);
+    }
 
     return 1;
 }
 
 sub main
 {
+    open my $fh, '<', '/root/rndc.config' or die $!;
+    my @data = <$fh>;
+    close $fh;
+
+    ($tsig) = first { /secret/ } @data;
+    chomp $tsig;
+    $tsig =~ s/.*"(.+)".*/$1/;
+    ($nameserver) = first { /default-server/ } @data;
+    chomp $nameserver;
+    $nameserver =~ s/.*default-server\s*(.+);/$1/;
+    my @ipdata = gethostbyname($nameserver);
+    $nameserver = join '.', unpack('C4', $ipdata[4]);
+
     my $d = HTTP::Daemon->new(LocalPort => 8080) or die $!;
     while (my $c = $d->accept) {
 	if (my $r = $c->get_request) {
