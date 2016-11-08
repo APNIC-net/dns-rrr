@@ -3,6 +3,7 @@
 use warnings;
 use strict;
 
+use Bytes::Random::Secure;
 use Data::Dumper;
 use HTTP::Daemon;
 use HTTP::Response;
@@ -16,7 +17,6 @@ my $DNSSEC_PARTS = <<EOF;
     inline-signing yes;
 EOF
 
-my $count = 0;
 my $tsig;
 my $nameserver;
 
@@ -26,15 +26,21 @@ sub generate_zone
 
     my $fh;
 
-    # Generate a new zone name.
-    my $zone_name = "sd$count.example.com.";
-    my $zone_name_np = $zone_name;
-    $zone_name_np =~ s/\.$//;
-    $count++;
-
-    # Add an NS record to the parent.
     my $resolver = Net::DNS::Resolver->new();
     $resolver->nameservers($nameserver);
+
+    # Generate a new zone name.
+    my $brs = Bytes::Random::Secure->new(Bits => 512, NonBlocking => 1);
+    my $token;
+    do {
+        $token = $brs->bytes_hex(4);
+    } while ($resolver->query("$token.example.com", "NS"));
+
+    my $zone_name = "$token.example.com.";
+    my $zone_name_np = $zone_name;
+    $zone_name_np =~ s/\.$//;
+
+    # Add an NS record to the parent.
     my $update = Net::DNS::Update->new("example.com", "IN");
     $update->push(update => rr_add("$zone_name NS ns1.$zone_name_np"));
     $update->sign_tsig("example.com", $tsig);

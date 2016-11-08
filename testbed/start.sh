@@ -1,5 +1,10 @@
 #!/bin/sh
-dir1=`mktemp -d`
+if [ $# -eq 0 ]
+    then
+        dir1=`mktemp -d`
+    else
+        dir1=$1
+fi
 echo $dir1
 docker run --name bind_testbed -d --restart=always \
   --publish 127.0.0.4:53:53/tcp \
