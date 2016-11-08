@@ -21,8 +21,17 @@ sub get_resolver
 
     my $details = $object->{"domains"}->{$domain};
     my $resolver = Net::DNS::Resolver->new();
-    if ($details->{"server"}) {
-        $resolver->nameservers($details->{"server"});
+
+    my $server = $details->{"server"}
+              || $object->{"default_server"};
+    if ($server) {
+        if ($server !~ /\./) {
+            my @data = gethostbyname($server);
+            my $addr = join '.', unpack('C4', $data[4]);
+            $resolver->nameservers($addr);
+        } else {
+            $resolver->nameservers($server);
+        }
     } else {
         my ($soa) = rr($resolver, $domain, "SOA");
         if (not $soa) {

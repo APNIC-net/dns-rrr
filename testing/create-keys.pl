@@ -18,5 +18,5 @@ sub run
 my $zone = $ARGV[0];
 my $content = read_file($zone);
 my ($fqdn) = ($content =~ /^\$ORIGIN (.*)$/m);
-run("../create-zsk.sh $fqdn");
-run("../create-ksk.sh $fqdn");
+run("../../testing/create-zsk.sh $fqdn");
+run("../../testing/create-ksk.sh $fqdn");

@@ -253,6 +253,10 @@ sub nameservers_agree
 {
     my ($self, $domain, $cds_rrs, $cdnskey_rrs) = @_;
 
+    if ($self->{'disable_nameservers_agree'}) {
+        return 1;
+    }
+
     my $resolver = get_resolver($self, $domain);
     my @soa_rrs = rr($resolver, $domain, "SOA");
     my @ns_rrs = rr($resolver, $domain, "NS");
@@ -295,7 +299,12 @@ sub post_cds
     my ($self, $c, $r, $domain) = @_;
 
     my $resolver = get_resolver($self, $domain);
-    my @txt_rrs = rr($resolver, "_delegate.$domain", "TXT");
+    my @txt_rrs;
+    my $tries = 10;
+    while ($tries and not @txt_rrs = rr($resolver, "_delegate.$domain", "TXT")) {
+        $tries--;
+        sleep(1);
+    }
     if (not @txt_rrs) {
         return $self->error(HTTP_FORBIDDEN,
                             "No token record",

@@ -1,0 +1,12 @@
+port: 8080
+ds_from: CDNSKEY
+ds_digest_types:
+  - SHA-1
+  - SHA-256
+  - SHA-384
+default_server: bind_testbed
+disable_nameservers_agree: 1
+domains:
+  example.com:
+    server: bind_testbed
+    tsig: "+8OY/2Ys+3juRO3oG/AHjw=="
