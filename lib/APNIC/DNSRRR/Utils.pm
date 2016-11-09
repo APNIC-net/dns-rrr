@@ -25,12 +25,17 @@ sub get_resolver
     my $server = $details->{"server"}
               || $object->{"default_server"};
     if ($server) {
+        my ($port) = ($server =~ /.*:(.*)/);
+        $server =~ s/:.*//;
         if ($server !~ /\./) {
             my @data = gethostbyname($server);
             my $addr = join '.', unpack('C4', $data[4]);
             $resolver->nameservers($addr);
         } else {
             $resolver->nameservers($server);
+        }
+        if ($port) {
+            $resolver->port($port);
         }
     } else {
         my ($soa) = rr($resolver, $domain, "SOA");

@@ -17,6 +17,8 @@ my $DNSSEC_PARTS = <<EOF;
     inline-signing yes;
 EOF
 
+my $PORT = 8082;
+
 my $tsig;
 my $nameserver;
 
@@ -158,6 +160,8 @@ sub handle_request
 
 sub main
 {
+    print "Starting ZP\n";
+
     open my $fh, '<', '/root/rndc.config' or die $!;
     my @data = <$fh>;
     close $fh;
@@ -171,8 +175,15 @@ sub main
     my @ipdata = gethostbyname($nameserver);
     $nameserver = join '.', unpack('C4', $ipdata[4]);
 
-    my $d = HTTP::Daemon->new(LocalPort => 8080) or die $!;
+    print "TSIG is '$tsig', nameserver is '$nameserver'\n";
+
+    print "Binding to $PORT\n";
+    my $d = HTTP::Daemon->new(LocalPort => $PORT,
+			      ReuseAddr => 1,
+			      ReusePort => 1) or die $!;
+    print "Bound to $PORT, waiting for connections\n";
     while (my $c = $d->accept) {
+        print "Accepted connection\n";
 	if (my $r = $c->get_request) {
 	    if ($r->method eq 'POST' and $r->uri->path eq "/provision") {
                 handle_request($c, $r);
@@ -180,6 +191,7 @@ sub main
 		$c->send_error(404);
 	    }
 	}
+        print "Finished with connection\n";
 	$c->close;
 	undef($c);
     }
