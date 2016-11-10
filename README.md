@@ -85,6 +85,10 @@ other scenarios: use `docker inspect -f {{ .Mounts }} $id` to find the
 base bind configuration directory, and see `testing/00_parent` and
 `testing/01_child` for RNDC configuration files.
 
+## Public testbed
+
+See [testbed](testbed.md) for details.
+
 ## License
 
 See [LICENSE.txt](LICENSE.txt).
