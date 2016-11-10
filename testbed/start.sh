@@ -14,11 +14,11 @@ docker run --name bind_testbed -d --restart=always \
   --volume $dir1:/data \
   bind_testbed
 docker run --name bind_zp -d --restart=always \
-  --publish 127.0.0.4:8080:8080/tcp \
+  --publish 127.0.0.4:8082:8082/tcp \
   --volume $dir1:/data \
   --link bind_testbed:bind_testbed \
   bind_zp
 docker run --name bind_rrr -d --restart=always \
-  --publish 127.0.0.4:8081:8080/tcp \
+  --publish 127.0.0.4:8081:8081/tcp \
   --link bind_testbed:bind_testbed \
   bind_rrr

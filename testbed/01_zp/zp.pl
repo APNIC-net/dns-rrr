@@ -54,7 +54,7 @@ sub generate_zone
     }
 
     # Generate a key for the zone.
-    my $path = `dnssec-keygen -r /dev/urandom -a HMAC-MD5 -b 128 -n HOST $zone_name`;
+    my ($path) = `dnssec-keygen -r /dev/urandom -a HMAC-MD5 -b 128 -n HOST $zone_name`;
     chomp $path;
     open $fh, '<', $path.".private" or die $!;
     my $key;
@@ -95,10 +95,10 @@ EOF
     my $extra;
     if ($auto_dnssec) {
         $extra = $DNSSEC_PARTS;
-	my $path1 = `dnssec-keygen -r /dev/urandom -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE $zone_name`;
+	my ($path1) = `dnssec-keygen -r /dev/urandom -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE $zone_name`;
         chomp $path1;
         system("mv $path1.* /etc/bind/keys/");
-        my $path2 = `dnssec-keygen -r /dev/urandom -a NSEC3RSASHA1 -b 2048 -n ZONE $zone_name`;
+        my ($path2) = `dnssec-keygen -r /dev/urandom -a NSEC3RSASHA1 -b 2048 -n ZONE $zone_name`;
         chomp $path2;
         system("mv $path2.* /etc/bind/keys/");
         system("chmod 777 /etc/bind/keys/*");
@@ -120,15 +120,15 @@ EOF
     close $fh;
 
     # Refresh bind's configuration.
-    my $res = system("perl /etc/bind/process-named-conf.pl /etc/bind/named.conf.local.template /etc/bind/named.conf.local");
-    if ($res != 0) {
+    my $result = system("perl /etc/bind/process-named-conf.pl /etc/bind/named.conf.local.template /etc/bind/named.conf.local");
+    if ($result != 0) {
         warn "Unable to refresh bind's configuration";
         return;
     }
 
     # Reload bind's configuration.
-    $res = system("rndc -c /root/rndc.config reconfig");
-    if ($res != 0) {
+    $result = system("rndc -c /root/rndc.config reconfig");
+    if ($result != 0) {
         warn "Unable to reload bind's configuration";
         return;
     }
@@ -136,14 +136,98 @@ EOF
     return ($zone_name, $key);
 }
 
-sub handle_request
+sub handle_generate_key_request
+{
+    my ($c, $r, $zone) = @_;
+
+    my $res = HTTP::Response->new();
+
+    my ($keypath) =
+        `dnssec-keygen -r /dev/urandom -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE $zone. 2>/dev/null`;
+    chomp $keypath;
+    system("chmod 777 $keypath*");
+    system("mv $keypath* /etc/bind/keys/");
+    my $result = system("rndc -c /root/rndc.config loadkeys $zone.");
+    if ($result != 0) {
+        warn "Unable to load keys into zone";
+        $res->code(500);
+        $c->send_response($res);
+        return;
+    }
+
+    $res->code(200);
+    $c->send_response($res);
+
+    return 1;
+}
+
+sub handle_remove_key_request
+{
+    my ($c, $r, $zone) = @_;
+
+    my $res = HTTP::Response->new();
+
+    my %args = $r->uri()->query_form();
+    my $tag = $args{'tag'};
+    if (not $tag) {
+        warn "No tag for $zone key removal request";
+        $res->code(400);
+        $c->send_response($res);
+    }
+
+    my ($previous_path) =
+	map { chomp; $_ }
+            `ls /etc/bind/keys/K$zone.*$tag.key`;
+
+    system("rndc -c /root/rndc.config sign $zone.");
+    sleep(1);
+    my @rndc_keys =
+        map { chomp; $_ }
+            `rndc -c /root/rndc.config signing -list $zone.`;
+    my $to_remove = first { /$tag/ } @rndc_keys;
+    $to_remove =~ s/.* key //;
+
+    my $result =
+        system("dnssec-settime -I +0 -D +0 $previous_path");
+    if ($result != 0) {
+        warn "Unable to set time to zero for key $tag for $zone";
+        $res->code(500);
+        $c->send_response($res);
+        return;
+    }
+    system("chmod 777 /etc/bind/keys/*");
+
+    $result = system("rndc -c /root/rndc.config signing -clear ".
+                     "$to_remove $zone.");
+    if ($result != 0) {
+        warn "Unable to clear signing for key $tag for $zone";
+        $res->code(500);
+        $c->send_response($res);
+        return;
+    }
+    $result = system("rndc -c /root/rndc.config loadkeys $zone.");
+    if ($result != 0) {
+        warn "Unable to load keys for $zone";
+        $res->code(500);
+        $c->send_response($res);
+        return;
+    }
+
+    $res->code(200);
+    $c->send_response($res);
+
+    return 1;
+}
+
+sub handle_provision_request
 {
     my ($c, $r) = @_;
+
+    my $res = HTTP::Response->new();
 
     my %args = $r->uri()->query_form();
     my ($zone_name, $key) = generate_zone($args{'auto-dnssec'});
 
-    my $res = HTTP::Response->new();
     if (not $zone_name) {
         $res->code(500);
         $c->send_response($res);
@@ -156,6 +240,22 @@ sub handle_request
     }
 
     return 1;
+}
+
+sub zone_to_tsig
+{
+    my ($zone_name) = @_;
+
+    open my $fh, '<', "/etc/bind/named.conf.d/$zone_name" or die $!;
+    my $key;
+    while (defined (my $line = <$fh>)) {
+        chomp $line;
+        ($key) = ($line =~ /secret "(.*)";/);
+        if ($key) {
+            last;
+        }
+    }
+    return $key;
 }
 
 sub main
@@ -183,14 +283,41 @@ sub main
 			      ReusePort => 1) or die $!;
     print "Bound to $PORT, waiting for connections\n";
     while (my $c = $d->accept) {
-        print "Accepted connection\n";
-	if (my $r = $c->get_request) {
-	    if ($r->method eq 'POST' and $r->uri->path eq "/provision") {
-                handle_request($c, $r);
-	    } else {
-		$c->send_error(404);
-	    }
-	}
+        eval {
+            print "Accepted connection\n";
+            my $r = $c->get_request();
+            if (not $r) {
+                die "No request";
+            }
+            my $m = $r->method();
+            my $p = $r->uri->path();
+            print "$m $p\n";
+            if ($m eq 'POST') {
+                if ($p eq "/provision") {
+                    handle_provision_request($c, $r);
+                } else {
+                    my ($zone, $action) = ($p =~ m!/(.*.example.com)/(.*)$!);
+                    my $tsig = zone_to_tsig($zone);
+                    my ($arg_tsig) =
+                        ($r->header("Authorization") =~ /^Bearer (.+)$/);
+                    if ((not $arg_tsig) or ($arg_tsig ne $tsig)) {
+                        $c->send_error(401);
+                    } elsif ($action eq "generate-key") {
+                        handle_generate_key_request($c, $r, $zone);
+                    } elsif ($action eq "remove-key") {
+                        handle_remove_key_request($c, $r, $zone);
+                    } else {
+                        $c->send_error(404);
+                    }
+                }
+            } else {
+                $c->send_error(404);
+            }
+        };
+        if (my $error = $@) {
+            print "Error: $error\n";
+            $c->send_error(500);
+        }
         print "Finished with connection\n";
 	$c->close;
 	undef($c);
