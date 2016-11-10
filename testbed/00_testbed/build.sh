@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 rm -f K*
 rm -f dsset-example.com.
 ../../testing/create-keys.pl zones.example.com

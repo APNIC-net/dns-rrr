@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 rm -rf dns-rrr
 mkdir dns-rrr
 cd ../../
