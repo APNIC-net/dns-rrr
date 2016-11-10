@@ -71,5 +71,6 @@ To disable DNSSEC:
     $ dig @rrr.ideas.apnic.net +short DS b15c6ace.example.com | sort
     $
 
-If you run into any problems with the testbed, or with dns-rrr-client,
-please contact tomh@apnic.net or helpdesk@apnic.net.
+If you run into any problems with the testbed/dns-rrr-client, or have
+any feedback/suggestions, please contact tomh@apnic.net or
+helpdesk@apnic.net.
