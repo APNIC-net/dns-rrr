@@ -87,7 +87,7 @@ base bind configuration directory, and see `testing/00_parent` and
 
 ## Public testbed
 
-See [testbed](testbed.md) for details.
+See [Public testbed](testbed.md) for details.
 
 ## License
 
