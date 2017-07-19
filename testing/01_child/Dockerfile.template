@@ -1,4 +1,4 @@
-FROM sameersbn/bind:9d576d697e3e
+FROM sameersbn/bind:9.9.5-20170626
 
 RUN usermod -u ${USER_ID} bind
 COPY zones.child /etc/bind/

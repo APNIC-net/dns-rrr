@@ -60,6 +60,9 @@ use (defaults to false for both).
 
 ## Example usage
 
+After running `testing/build.sh` in order to create the testing docker images,
+run:
+
     $ ./testing/start.sh
     322169d3c33808a4766610458a87266b2fc666175965776f33bfda37b8a4be8f
     d91f3505cece3f3279cd3cd0f2259a03fd0ca1994db4a7d57a7c3bbb63c62eef
