@@ -42,6 +42,8 @@ sub start_test_servers
     }
 
     system("./testing/start.sh >/dev/null");
+    # todo: check that the servers are actually up.
+    sleep(5);
 
     return [ \@pids, \@servers ];
 }
