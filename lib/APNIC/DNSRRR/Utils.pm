@@ -21,6 +21,7 @@ sub get_resolver
 
     my $details = $object->{"domains"}->{$domain};
     my $resolver = Net::DNS::Resolver->new();
+    $resolver->usevc(1);
 
     my $server = $details->{"server"}
               || $object->{"default_server"};
